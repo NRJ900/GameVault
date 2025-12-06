@@ -1,0 +1,188 @@
+[2025-12-04T12:46:19.931Z] Starting global game monitoring...
+[2025-12-04T12:48:10.619Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:15.581Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:20.655Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:25.618Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:30.618Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:35.602Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:40.608Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:45.634Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:48:50.683Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:49:40.712Z] MATCH FOUND! launcher.exe is running.
+[2025-12-04T12:51:27.752Z] Starting global game monitoring...
+[2025-12-04T12:52:29.427Z] Starting global game monitoring...
+[2025-12-04T12:52:34.986Z] Monitoring: Checked 2 games against process list (16734 chars).
+[2025-12-04T12:52:40.049Z] Monitoring: Checked 2 games against process list (16823 chars).
+[2025-12-04T12:52:45.023Z] Monitoring: Checked 2 games against process list (16868 chars).
+[2025-12-04T12:52:49.928Z] Monitoring: Checked 2 games against process list (16744 chars).
+[2025-12-04T12:52:54.911Z] Monitoring: Checked 2 games against process list (16744 chars).
+[2025-12-04T12:52:59.930Z] Monitoring: Checked 2 games against process list (16745 chars).
+[2025-12-04T12:53:04.932Z] Monitoring: Checked 2 games against process list (16746 chars).
+[2025-12-04T12:53:10.007Z] Monitoring: Checked 2 games against process list (16745 chars).
+[2025-12-04T12:53:14.953Z] Monitoring: Checked 2 games against process list (16746 chars).
+[2025-12-04T12:53:20.001Z] Monitoring: Checked 2 games against process list (17026 chars).
+[2025-12-04T12:53:25.120Z] Monitoring: Checked 2 games against process list (17026 chars).
+[2025-12-04T12:53:30.005Z] Monitoring: Checked 2 games against process list (16967 chars).
+[2025-12-04T12:53:35.014Z] Monitoring: Checked 2 games against process list (16968 chars).
+[2025-12-04T12:53:40.107Z] Monitoring: Checked 2 games against process list (16831 chars).
+[2025-12-04T12:53:45.046Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:53:50.093Z] Monitoring: Checked 2 games against process list (16968 chars).
+[2025-12-04T12:53:55.106Z] Monitoring: Checked 2 games against process list (16968 chars).
+[2025-12-04T12:54:00.140Z] Monitoring: Checked 2 games against process list (16967 chars).
+[2025-12-04T12:54:05.071Z] Monitoring: Checked 2 games against process list (16693 chars).
+[2025-12-04T12:54:10.018Z] Monitoring: Checked 2 games against process list (16692 chars).
+[2025-12-04T12:54:15.044Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:54:20.037Z] Monitoring: Checked 2 games against process list (16738 chars).
+[2025-12-04T12:54:25.110Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:54:30.097Z] Monitoring: Checked 2 games against process list (16789 chars).
+[2025-12-04T12:54:35.057Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:54:40.036Z] Monitoring: Checked 2 games against process list (16785 chars).
+[2025-12-04T12:54:45.040Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:54:50.153Z] Monitoring: Checked 2 games against process list (16794 chars).
+[2025-12-04T12:54:55.061Z] Monitoring: Checked 2 games against process list (16797 chars).
+[2025-12-04T12:55:00.053Z] Monitoring: Checked 2 games against process list (16797 chars).
+[2025-12-04T12:55:05.088Z] Monitoring: Checked 2 games against process list (16797 chars).
+[2025-12-04T12:55:10.086Z] Monitoring: Checked 2 games against process list (16796 chars).
+[2025-12-04T12:55:15.128Z] Monitoring: Checked 2 games against process list (16796 chars).
+[2025-12-04T12:55:20.151Z] Monitoring: Checked 2 games against process list (17023 chars).
+[2025-12-04T12:55:25.406Z] Monitoring: Checked 2 games against process list (16977 chars).
+[2025-12-04T12:55:30.178Z] Monitoring: Checked 2 games against process list (16977 chars).
+[2025-12-04T12:55:35.170Z] Monitoring: Checked 2 games against process list (17023 chars).
+[2025-12-04T12:55:45.282Z] Starting global game monitoring...
+[2025-12-04T12:55:50.721Z] Monitoring: Checked 2 games against process list (16792 chars).
+[2025-12-04T12:55:55.770Z] Monitoring: Checked 2 games against process list (16792 chars).
+[2025-12-04T12:56:00.727Z] Monitoring: Checked 2 games against process list (16792 chars).
+[2025-12-04T12:56:05.730Z] Monitoring: Checked 2 games against process list (16745 chars).
+[2025-12-04T12:56:10.767Z] Monitoring: Checked 2 games against process list (16749 chars).
+[2025-12-04T12:56:15.822Z] Monitoring: Checked 2 games against process list (16749 chars).
+[2025-12-04T12:56:20.838Z] Monitoring: Checked 2 games against process list (16808 chars).
+[2025-12-04T12:56:20.838Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:56:25.788Z] Monitoring: Checked 2 games against process list (16807 chars).
+[2025-12-04T12:56:25.789Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:56:30.856Z] Monitoring: Checked 2 games against process list (16808 chars).
+[2025-12-04T12:56:30.856Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:56:35.828Z] Monitoring: Checked 2 games against process list (16855 chars).
+[2025-12-04T12:56:35.828Z] MATCH FOUND! losslessscaling.exe is running.
+[2025-12-04T12:56:40.823Z] Monitoring: Checked 2 games against process list (16797 chars).
+[2025-12-04T12:56:45.789Z] Monitoring: Checked 2 games against process list (16797 chars).
+[2025-12-04T12:56:50.798Z] Monitoring: Checked 2 games against process list (16796 chars).
+[2025-12-04T12:56:55.796Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:57:00.794Z] Monitoring: Checked 2 games against process list (16738 chars).
+[2025-12-04T12:57:05.805Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:57:10.817Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:57:15.831Z] Monitoring: Checked 2 games against process list (16738 chars).
+[2025-12-04T12:57:20.820Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:57:25.839Z] Monitoring: Checked 2 games against process list (16738 chars).
+[2025-12-04T12:57:30.846Z] Monitoring: Checked 2 games against process list (16739 chars).
+[2025-12-04T12:57:35.860Z] Monitoring: Checked 2 games against process list (16738 chars).
+[2025-12-04T12:57:40.884Z] Monitoring: Checked 2 games against process list (16788 chars).
+[2025-12-04T12:57:45.910Z] Monitoring: Checked 2 games against process list (16839 chars).
+[2025-12-04T12:57:50.892Z] Monitoring: Checked 2 games against process list (16788 chars).
+[2025-12-04T12:57:55.949Z] Monitoring: Checked 2 games against process list (16851 chars).
+[2025-12-04T12:58:00.919Z] Monitoring: Checked 2 games against process list (16964 chars).
+[2025-12-04T12:58:05.937Z] Monitoring: Checked 2 games against process list (16963 chars).
+[2025-12-04T12:58:10.942Z] Monitoring: Checked 2 games against process list (16964 chars).
+[2025-12-04T12:58:15.948Z] Monitoring: Checked 2 games against process list (16964 chars).
+[2025-12-04T12:58:20.948Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:26.017Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:30.983Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:36.006Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:40.998Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:46.074Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:51.027Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:58:56.067Z] Monitoring: Checked 2 games against process list (16912 chars).
+[2025-12-04T12:59:01.060Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:06.101Z] Monitoring: Checked 2 games against process list (16848 chars).
+[2025-12-04T12:59:11.069Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:16.121Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:21.142Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:26.079Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:31.237Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:36.097Z] Monitoring: Checked 2 games against process list (16894 chars).
+[2025-12-04T12:59:41.128Z] Monitoring: Checked 2 games against process list (16849 chars).
+[2025-12-04T12:59:46.309Z] Monitoring: Checked 2 games against process list (17048 chars).
+[2025-12-04T12:59:51.217Z] Monitoring: Checked 2 games against process list (17195 chars).
+[2025-12-04T12:59:56.224Z] Monitoring: Checked 2 games against process list (17194 chars).
+[2025-12-04T13:00:01.667Z] Starting global game monitoring...
+[2025-12-04T13:00:07.158Z] Monitoring: Checked 2 games against process list (17086 chars).
+[2025-12-04T13:00:12.239Z] Monitoring: Checked 2 games against process list (17039 chars).
+[2025-12-04T13:00:17.198Z] Monitoring: Checked 2 games against process list (16989 chars).
+[2025-12-04T13:00:22.160Z] Monitoring: Checked 2 games against process list (17035 chars).
+[2025-12-04T13:00:27.142Z] Monitoring: Checked 2 games against process list (16941 chars).
+[2025-12-04T13:00:32.163Z] Monitoring: Checked 2 games against process list (16887 chars).
+[2025-12-04T13:00:37.155Z] Monitoring: Checked 2 games against process list (16887 chars).
+[2025-12-04T13:00:42.167Z] Monitoring: Checked 2 games against process list (16887 chars).
+[2025-12-04T13:00:47.180Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:00:52.204Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:00:57.217Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:01:02.232Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:01:07.227Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:01:12.228Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:01:17.262Z] Monitoring: Checked 2 games against process list (16885 chars).
+[2025-12-04T13:01:19.584Z] Starting global game monitoring...
+[2025-12-04T13:02:45.203Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T13:03:00.240Z] Game exited: losslessscaling.exe
+[2025-12-04T13:08:24.288Z] Starting global game monitoring...
+[2025-12-04T13:20:20.363Z] Starting global game monitoring...
+[2025-12-04T13:52:53.844Z] Starting global game monitoring...
+[2025-12-04T14:52:35.092Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T14:55:45.295Z] Game exited: losslessscaling.exe
+[2025-12-04T15:00:10.698Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:02:30.875Z] Game exited: losslessscaling.exe
+[2025-12-04T15:02:53.794Z] Starting global game monitoring...
+[2025-12-04T15:03:09.315Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:03:29.316Z] Game exited: losslessscaling.exe
+[2025-12-04T15:03:44.377Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:04:04.345Z] Game exited: losslessscaling.exe
+[2025-12-04T15:05:23.410Z] Starting global game monitoring...
+[2025-12-04T15:07:14.024Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:13:38.012Z] Starting global game monitoring...
+[2025-12-04T15:13:43.478Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:14:03.464Z] Game exited: losslessscaling.exe
+[2025-12-04T15:17:28.840Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:20:59.120Z] Game exited: losslessscaling.exe
+[2025-12-04T15:21:49.273Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:23:04.284Z] Game exited: losslessscaling.exe
+[2025-12-04T15:24:23.629Z] Starting global game monitoring...
+[2025-12-04T15:24:59.184Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:25:24.179Z] Game exited: losslessscaling.exe
+[2025-12-04T15:25:44.180Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T15:25:54.150Z] Game exited: losslessscaling.exe
+[2025-12-04T15:29:55.949Z] Starting global game monitoring...
+[2025-12-04T16:05:54.641Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T16:10:05.697Z] Starting global game monitoring...
+[2025-12-04T16:10:11.260Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T16:10:13.669Z] Starting global game monitoring...
+[2025-12-04T16:10:15.497Z] Starting global game monitoring...
+[2025-12-04T16:10:21.035Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T16:14:46.328Z] Game exited: losslessscaling.exe
+[2025-12-04T16:18:47.573Z] Starting global game monitoring...
+[2025-12-04T16:20:05.229Z] Starting global game monitoring...
+[2025-12-04T16:39:02.543Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T16:39:02.544Z] Attempting to register F12 for Lossless Scaling
+[2025-12-04T16:39:02.545Z] Registration failed.
+[2025-12-04T16:41:09.801Z] Starting global game monitoring...
+[2025-12-04T16:41:15.388Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T16:41:15.389Z] Attempting to register screenshot shortcut for Lossless Scaling
+[2025-12-04T16:41:15.390Z] Failed to register F12.
+[2025-12-04T16:41:15.390Z] Screenshot shortcut (CommandOrControl+F12) registered successfully.
+[2025-12-04T16:42:25.401Z] Game exited: losslessscaling.exe
+[2025-12-04T16:42:25.401Z] Screenshot shortcut (CommandOrControl+F12) unregistered
+[2025-12-04T16:42:30.430Z] MATCH FOUND! losslessscaling.exe started.
+[2025-12-04T16:42:30.431Z] Attempting to register screenshot shortcut for Lossless Scaling
+[2025-12-04T16:42:30.431Z] Failed to register F12.
+[2025-12-04T16:42:30.432Z] Screenshot shortcut (CommandOrControl+F12) registered successfully.
+[2025-12-04T16:42:37.141Z] CommandOrControl+F12 pressed - Taking screenshot...
+[2025-12-04T16:42:37.142Z] Attempting to take screenshot for Lossless Scaling...
+[2025-12-04T16:42:37.788Z] Screenshot saved to: C:\Users\manis\AppData\Roaming\game-library-app\screenshots\Lossless Scaling\screenshot-2025-12-04T16-42-37-701Z.png
+[2025-12-04T16:42:58.102Z] CommandOrControl+F12 pressed - Taking screenshot...
+[2025-12-04T16:42:58.102Z] Attempting to take screenshot for Lossless Scaling...
+[2025-12-04T16:42:58.727Z] Screenshot saved to: C:\Users\manis\AppData\Roaming\game-library-app\screenshots\Lossless Scaling\screenshot-2025-12-04T16-42-58-615Z.png
+[2025-12-04T16:43:08.214Z] CommandOrControl+F12 pressed - Taking screenshot...
+[2025-12-04T16:43:08.214Z] Attempting to take screenshot for Lossless Scaling...
+[2025-12-04T16:43:08.763Z] Screenshot saved to: C:\Users\manis\AppData\Roaming\game-library-app\screenshots\Lossless Scaling\screenshot-2025-12-04T16-43-08-691Z.png
+[2025-12-04T16:49:46.121Z] Game exited: losslessscaling.exe
+[2025-12-04T16:49:46.121Z] Screenshot shortcut (CommandOrControl+F12) unregistered
+[2025-12-04T16:50:51.283Z] Starting global game monitoring...
+[2025-12-04T16:52:32.843Z] Starting global game monitoring...
+[2025-12-04T16:52:37.157Z] Starting global game monitoring...
