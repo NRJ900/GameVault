@@ -7,19 +7,21 @@ interface MiniDashboardProps {
   dailyLimit: number;
   dailyLimitEnabled: boolean;
   todayPlaytime: number;
+  mostActiveGame?: string;
   onConfigureLimit: () => void;
 }
 
-export function MiniDashboard({ 
-  dailyLimit, 
-  dailyLimitEnabled, 
+export function MiniDashboard({
+  dailyLimit,
+  dailyLimitEnabled,
   todayPlaytime,
-  onConfigureLimit 
+  mostActiveGame,
+  onConfigureLimit
 }: MiniDashboardProps) {
   const percentage = dailyLimitEnabled ? Math.min((todayPlaytime / dailyLimit) * 100, 100) : 0;
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-[var(--gaming-purple)]/10 to-[var(--gaming-cyan)]/10 border-white/10">
+    <Card className="p-6 bg-gradient-to-br from-[var(--gaming-purple)]/10 to-[var(--gaming-cyan)]/10 border-white/10 h-full">
       <div className="flex items-center gap-2 mb-4">
         <Flame className="w-5 h-5 text-[var(--gaming-purple)]" />
         <h3>Today's Activity</h3>
@@ -45,7 +47,7 @@ export function MiniDashboard({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Most Active</p>
-              <p className="text-xl">Cyberpunk 2077</p>
+              <p className="text-xl">{mostActiveGame || "None"}</p>
             </div>
           </div>
         </div>
@@ -71,11 +73,10 @@ export function MiniDashboard({
                 initial={{ width: 0 }}
                 animate={{ width: `${percentage}%` }}
                 transition={{ duration: 1, ease: "easeOut" }}
-                className={`h-full ${
-                  percentage >= 100
-                    ? "bg-destructive"
-                    : "bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)]"
-                }`}
+                className={`h-full ${percentage >= 100
+                  ? "bg-destructive"
+                  : "bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)]"
+                  }`}
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">

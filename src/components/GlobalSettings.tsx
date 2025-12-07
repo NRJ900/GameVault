@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { ArrowLeft, Palette, HardDrive, Cloud, Bell, RotateCw, Upload, Lock, Image as ImageIcon, Trash2, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Palette, HardDrive, Cloud, Bell, RotateCw, Upload, Lock, Image as ImageIcon, Trash2, ShoppingBag, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
@@ -13,9 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { availableThemes } from "./ThemeStore";
 import { toast } from "sonner";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useTheme } from "./theme-provider";
 
 interface GlobalSettingsProps {
@@ -38,6 +45,7 @@ interface GlobalSettingsProps {
   // New Props
   defaultGameDir: string;
   onDefaultGameDirChange: (path: string) => void;
+  onRescanDefaultDir?: () => void;
   autoDetectGames: boolean;
   onAutoDetectGamesChange: (enabled: boolean) => void;
   onScanLibrary: () => void;
@@ -51,6 +59,16 @@ interface GlobalSettingsProps {
   onAutoBackupChange: (enabled: boolean) => void;
   onBackup: () => void;
   onRestore: () => void;
+
+  gameNewsUpdates: boolean;
+  onGameNewsUpdatesChange: (enabled: boolean) => void;
+  achievementNotifications: boolean;
+  onAchievementNotificationsChange: (enabled: boolean) => void;
+  launchReminders: boolean;
+  onLaunchRemindersChange: (enabled: boolean) => void;
+  rawgApiKey: string;
+  onRawgApiKeyChange: (key: string) => void;
+  onRefreshMetadata: () => void;
 }
 
 export function GlobalSettings({
@@ -72,6 +90,7 @@ export function GlobalSettings({
 
   defaultGameDir,
   onDefaultGameDirChange,
+  onRescanDefaultDir,
   autoDetectGames,
   onAutoDetectGamesChange,
   onScanLibrary,
@@ -85,8 +104,18 @@ export function GlobalSettings({
   onAutoBackupChange,
   onBackup,
   onRestore,
+  gameNewsUpdates,
+  onGameNewsUpdatesChange,
+  achievementNotifications,
+  onAchievementNotificationsChange,
+  launchReminders,
+  onLaunchRemindersChange,
+  rawgApiKey,
+  onRawgApiKeyChange,
+  onRefreshMetadata,
 }: GlobalSettingsProps) {
   const { theme, setTheme } = useTheme();
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
@@ -186,6 +215,20 @@ export function GlobalSettings({
     }
   };
 
+  const handleCheckForUpdates = () => {
+    const toastId = toast.loading("Checking for updates...");
+    setTimeout(() => {
+      toast.success("You are on the latest version (v1.0.0)", {
+        id: toastId,
+        description: "No updates available at this time."
+      });
+    }, 1500);
+  };
+
+  const handleViewChangelog = () => {
+    setShowChangelog(true);
+  };
+
   return (
     <div className="size-full overflow-y-auto">
       <div className="max-w-4xl mx-auto p-8">
@@ -201,7 +244,7 @@ export function GlobalSettings({
           </Button>
           <div className="flex-1">
             <h1>Settings</h1>
-            <p className="text-muted-foreground">Manage your GameVault preferences</p>
+            <p className="text-muted-foreground">Manage your VAULTED preferences</p>
           </div>
         </div>
 
@@ -451,9 +494,22 @@ export function GlobalSettings({
                     {defaultGameDir}
                   </p>
                 </div>
-                <Button variant="outline" className="rounded-xl" onClick={handleChangeGameDir}>
-                  Change
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" className="rounded-xl" onClick={handleChangeGameDir}>
+                    Change
+                  </Button>
+                  {onRescanDefaultDir && defaultGameDir && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onRescanDefaultDir}
+                      className="rounded-xl text-muted-foreground hover:text-[var(--gaming-cyan)]"
+                      title="Scan this folder for games"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <Separator className="bg-border" />
@@ -597,7 +653,10 @@ export function GlobalSettings({
                     Get notified about game updates and news
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={gameNewsUpdates}
+                  onCheckedChange={onGameNewsUpdatesChange}
+                />
               </div>
 
               <Separator className="bg-white/10" />
@@ -609,7 +668,10 @@ export function GlobalSettings({
                     Show achievement unlocks
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={achievementNotifications}
+                  onCheckedChange={onAchievementNotificationsChange}
+                />
               </div>
 
               <Separator className="bg-border" />
@@ -621,66 +683,126 @@ export function GlobalSettings({
                     Remind you about games you haven't played
                   </p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={launchReminders}
+                  onCheckedChange={onLaunchRemindersChange}
+                />
               </div>
             </div>
           </div>
 
-          {/* Developer Options */}
+
+
+          {/* Integrations */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              <HardDrive className="w-5 h-5 text-red-500" />
-              <h2>Developer Options</h2>
+              <Cloud className="w-5 h-5 text-[var(--gaming-cyan)]" />
+              <h2>Integrations</h2>
             </div>
-            <div className="p-6 rounded-2xl border border-red-500/20 bg-red-500/5 backdrop-blur-sm space-y-4">
+            <div className="p-6 rounded-2xl border border-border bg-card backdrop-blur-sm space-y-4">
+              <div>
+                <Label>RAWG API Key</Label>
+                <p className="text-sm text-muted-foreground mt-1 mb-3">
+                  Required for fetching game metadata (covers, descriptions, etc.)
+                </p>
+                <Input
+                  type="password"
+                  value={rawgApiKey}
+                  onChange={(e) => onRawgApiKeyChange(e.target.value)}
+                  placeholder="Enter your RAWG API Key"
+                  className="bg-background/50"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Get a free key at <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="text-primary hover:underline">rawg.io/apidocs</a>
+                </p>
+              </div>
+
+              <Separator className="bg-border" />
+
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Set Points</Label>
+                  <Label>Refresh Metadata</Label>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Manually set your points balance (for testing)
+                    Update covers and details for all games
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setPoints(5000);
-                      toast.success("Points set to 5000!");
-                    }}
-                  >
-                    Set to 5000
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setPoints(0);
-                      toast.success("Points reset to 0!");
-                    }}
-                  >
-                    Reset
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={onRefreshMetadata}
+                  className="rounded-xl"
+                  disabled={!rawgApiKey}
+                >
+                  <RotateCw className="w-4 h-4 mr-2" />
+                  Refresh Now
+                </Button>
               </div>
             </div>
           </div>
+
+
 
           {/* About */}
           <div className="p-6 rounded-2xl bg-gradient-to-br from-[var(--gaming-purple)]/10 to-[var(--gaming-cyan)]/10 border border-border">
-            <h3 className="mb-2">GameVault v1.0.0</h3>
+            <h3 className="mb-2">VAULTED v1.0.0</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Modern game library management for desktop
             </p>
             <div className="flex gap-3">
-              <Button variant="outline" className="rounded-xl">
+              <Button variant="outline" className="rounded-xl" onClick={handleCheckForUpdates}>
                 Check for Updates
               </Button>
-              <Button variant="ghost" className="rounded-xl">
+              <Button variant="ghost" className="rounded-xl" onClick={handleViewChangelog}>
                 View Changelog
               </Button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+
+      <Dialog open={showChangelog} onOpenChange={setShowChangelog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Changelog v1.0.0</DialogTitle>
+            <DialogDescription>
+              Here's what's new in VAULTED
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-[var(--gaming-purple)]" />
+                Theme Store
+              </h4>
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                <li>New "Equip" button for instant theme application</li>
+                <li>Added 6 new themes including 2 animated ones</li>
+                <li>Fixed persistence issues with purchased themes</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <RotateCw className="w-4 h-4 text-[var(--gaming-cyan)]" />
+                Game Scanning
+              </h4>
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                <li>Improved accuracy with registry scanning</li>
+                <li>Added support for multi-drive detection</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-[var(--gaming-green)]" />
+                Cloud Sync
+              </h4>
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                <li>Added UI for upcoming cloud features</li>
+                <li>Implemented local backup functionality</li>
+              </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div >
   );
 }

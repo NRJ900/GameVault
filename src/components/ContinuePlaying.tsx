@@ -98,7 +98,7 @@ export function ContinuePlaying({ games, onBack, onGameClick, onGameContextMenu 
                       <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span>{game.hoursPlayed}h played</span>
+                          <span>{game.hoursPlayed.toFixed(1)}h played</span>
                         </div>
                         <div className="flex items-center gap-1 text-[var(--gaming-accent)]">
                           <svg
@@ -177,7 +177,7 @@ export function ContinuePlaying({ games, onBack, onGameClick, onGameContextMenu 
           <Card className="p-6 bg-gradient-to-br from-[var(--gaming-cyan)]/10 to-transparent border-white/10">
             <p className="text-sm text-muted-foreground mb-1">Total Hours</p>
             <p className="text-3xl">
-              {games.reduce((sum, game) => sum + game.hoursPlayed, 0)}h
+              {games.reduce((sum, game) => sum + game.hoursPlayed, 0).toFixed(1)}h
             </p>
           </Card>
 

@@ -24,10 +24,16 @@ interface DashboardProps {
   onScanGameClick?: () => void;
   onGameTitleClick?: (game: Game) => void;
   isLoading?: boolean;
+  mostActiveGame?: string;
 }
 
-export function Dashboard({ games, onGameClick, dailyLimit, dailyLimitEnabled, todayPlaytime, onConfigureLimit, onGameContextMenu, onAddGameClick, onScanGameClick, onGameTitleClick, isLoading }: DashboardProps) {
+import { SortControl, SortOption, SortDirection } from "./SortControl";
+
+export function Dashboard({ games, onGameClick, dailyLimit, dailyLimitEnabled, todayPlaytime, onConfigureLimit, onGameContextMenu, onAddGameClick, onScanGameClick, onGameTitleClick, isLoading, mostActiveGame }: DashboardProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<SortOption>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
   const y2 = useTransform(scrollY, [0, 500], [0, -150]);
@@ -44,29 +50,28 @@ export function Dashboard({ games, onGameClick, dailyLimit, dailyLimitEnabled, t
   // Get pinned games
   const pinnedGames = games.filter((game) => game.isPinned);
 
-  // Get recently played games (last 4)
-  const recentlyPlayed = [...games]
-    .sort((a, b) => {
-      // Primary sort: Timestamp (if available)
-      if (a.lastPlayedTimestamp && b.lastPlayedTimestamp) {
-        return b.lastPlayedTimestamp - a.lastPlayedTimestamp;
-      }
-      if (a.lastPlayedTimestamp) return -1;
-      if (b.lastPlayedTimestamp) return 1;
+  // Sort games
+  const sortedGames = [...games].sort((a, b) => {
+    let comparison = 0;
 
-      const timeMap: Record<string, number> = {
-        "Just now": -1,
-        "Today": 0,
-        "2 hours ago": 1,
-        "Yesterday": 2,
-        "3 days ago": 3,
-        "4 days ago": 4,
-        "5 days ago": 5,
-        "1 week ago": 6,
-      };
-      return (timeMap[a.lastPlayed] || 999) - (timeMap[b.lastPlayed] || 999);
-    })
-    .slice(0, 4);
+    switch (sortBy) {
+      case "name":
+        comparison = a.title.localeCompare(b.title);
+        break;
+      case "playtime":
+        comparison = (a.hoursPlayed || 0) - (b.hoursPlayed || 0);
+        break;
+      case "lastPlayed":
+        // Handle "Never" or missing timestamps
+        const timeA = a.lastPlayedTimestamp || (a.lastPlayed === "Never" ? 0 : 1);
+        const timeB = b.lastPlayedTimestamp || (b.lastPlayed === "Never" ? 0 : 1);
+        comparison = timeA - timeB;
+        break;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
 
   return (
     <div className="size-full overflow-y-auto relative">
@@ -85,16 +90,17 @@ export function Dashboard({ games, onGameClick, dailyLimit, dailyLimitEnabled, t
       <div className="max-w-[1800px] mx-auto p-8 relative z-10">
         {/* Top Widgets Row */}
         <div className="grid grid-cols-3 gap-6 mb-8">
-          <div className="col-span-2">
+          <div className="col-span-2 h-full">
             <MiniDashboard
               dailyLimit={dailyLimit}
               dailyLimitEnabled={dailyLimitEnabled}
               todayPlaytime={todayPlaytime}
+              mostActiveGame={mostActiveGame}
               onConfigureLimit={onConfigureLimit}
             />
           </div>
-          <div>
-            <AIRecommendations />
+          <div className="h-full">
+            <AIRecommendations games={games} />
           </div>
         </div>
 
@@ -140,70 +146,29 @@ export function Dashboard({ games, onGameClick, dailyLimit, dailyLimitEnabled, t
           </div>
         )}
 
-        {/* Recently Played Section */}
-        {(isLoading || recentlyPlayed.length > 0) && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2>Recently Played</h2>
-                <p className="text-muted-foreground">Jump back into your recent games</p>
-              </div>
-            </div>
-            <motion.div
-              className="grid grid-cols-4 gap-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                  <SkeletonGameTile key={i} />
-                ))
-                : recentlyPlayed.map((game, index) => (
-                  <motion.div
-                    key={game.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, duration: 0.3 }}
-                  >
-                    <GameTile
-                      game={game}
-                      onClick={() => onGameClick(game)}
-                      onContextMenu={onGameContextMenu ? (e) => onGameContextMenu(e, game) : undefined}
-                      onTitleClick={onGameTitleClick ? (e) => {
-                        e.stopPropagation();
-                        console.log("Dashboard received title click (Recent)");
-                        onGameTitleClick(game);
-                      } : undefined}
-                    />
-                  </motion.div>
-                ))}
-            </motion.div>
-          </div>
-        )}
 
         {/* My Games Section */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2>My Games</h2>
-            <p className="text-muted-foreground">
-              {games.length} games in your library
-            </p>
+            <h2 className="text-xl font-semibold mb-1">My Games</h2>
+            <p className="text-muted-foreground text-sm">{games.length} games in your library</p>
           </div>
-          <div className="flex items-center gap-4">
-            {onScanGameClick && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onScanGameClick}
-                className="gap-2"
-                style={{ WebkitAppRegion: "no-drag" } as any}
-              >
-                <Search className="w-4 h-4" />
-                Scan Library
-              </Button>
-            )}
-            <div className="flex items-center gap-2 bg-card/50 p-1 rounded-lg border border-border">
+          <div className="flex items-center gap-3">
+            <SortControl
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              onSortChange={setSortBy}
+              onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+            />
+            <Button
+              variant="outline"
+              onClick={onScanGameClick}
+              className="bg-card/50 border-white/10"
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Scan Library
+            </Button>
+            <div className="flex bg-card/50 rounded-lg p-1 border border-white/10">
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
@@ -238,38 +203,49 @@ export function Dashboard({ games, onGameClick, dailyLimit, dailyLimitEnabled, t
             ? Array.from({ length: 12 }).map((_, i) => (
               viewMode === "grid" ? <SkeletonGameTile key={i} /> : <SkeletonGameListItem key={i} />
             ))
-            : games.map((game, index) => (
-              <motion.div
-                key={game.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05, duration: 0.3 }}
-              >
-                {viewMode === "grid" ? (
-                  <GameTile
-                    game={game}
-                    onClick={() => onGameClick(game)}
-                    onContextMenu={onGameContextMenu ? (e) => onGameContextMenu(e, game) : undefined}
-                    onTitleClick={onGameTitleClick ? (e) => {
-                      e.stopPropagation();
-                      console.log("Dashboard received title click");
-                      onGameTitleClick(game);
-                    } : undefined}
-                  />
-                ) : (
-                  <GameListItem
-                    game={game}
-                    onClick={() => onGameClick(game)}
-                    onContextMenu={onGameContextMenu ? (e) => onGameContextMenu(e, game) : undefined}
-                    onTitleClick={onGameTitleClick ? (e) => {
-                      e.stopPropagation();
-                      console.log("Dashboard received title click (List)");
-                      onGameTitleClick(game);
-                    } : undefined}
-                  />
-                )}
-              </motion.div>
-            ))}
+            : viewMode === "grid" ? (
+              <>
+                {sortedGames.map((game, index) => (
+                  <motion.div
+                    key={game.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <GameTile
+                      game={game}
+                      onClick={() => onGameClick(game)}
+                      onContextMenu={onGameContextMenu ? (e) => onGameContextMenu(e, game) : undefined}
+                      onTitleClick={onGameTitleClick ? (e) => {
+                        e.stopPropagation();
+                        onGameTitleClick(game);
+                      } : undefined}
+                    />
+                  </motion.div>
+                ))}
+              </>
+            ) : (
+              <>
+                {sortedGames.map((game, index) => (
+                  <motion.div
+                    key={game.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <GameListItem
+                      game={game}
+                      onClick={() => onGameClick(game)}
+                      onContextMenu={onGameContextMenu ? (e) => onGameContextMenu(e, game) : undefined}
+                      onTitleClick={onGameTitleClick ? (e) => {
+                        e.stopPropagation();
+                        onGameTitleClick(game);
+                      } : undefined}
+                    />
+                  </motion.div>
+                ))}
+              </>
+            )}
         </motion.div>
       </div>
 

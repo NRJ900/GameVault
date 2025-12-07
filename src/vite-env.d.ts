@@ -15,7 +15,7 @@ interface Window {
         off: (channel: string, listener: (event: any, ...args: any[]) => void) => void;
         selectGameExe: () => Promise<string | null>;
         launchGame: (game: { executablePath: string; steamAppId?: string }) => Promise<boolean>;
-        scanGames: () => Promise<{ name: string; path: string; steamAppId?: string }[]>;
+        scanGames: (path?: string) => Promise<{ name: string; path: string; steamAppId?: string }[]>;
         openPath: (path: string) => Promise<void>;
         saveData: (key: string, data: any, encrypt?: boolean) => Promise<boolean>;
         loadData: (key: string) => Promise<any>;
@@ -27,6 +27,8 @@ interface Window {
         minimize: () => Promise<void>;
         maximize: () => Promise<void>;
         close: () => Promise<void>;
+        checkAppInstalled: (appId: 'steam' | 'epic' | 'gog') => Promise<boolean>;
+        getGameScreenshots: (gameName: string) => Promise<string[]>;
         invoke: (channel: string, ...args: any[]) => Promise<any>;
     }
 }

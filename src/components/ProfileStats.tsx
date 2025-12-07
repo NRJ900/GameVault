@@ -87,7 +87,7 @@ export function ProfileStats({ onBack, profilePicture, onProfilePictureChange }:
                 />
               ) : (
                 <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center">
-                  <span className="text-3xl text-white">GV</span>
+                  <span className="text-3xl text-white">V</span>
                 </div>
               )}
               <button
@@ -105,7 +105,7 @@ export function ProfileStats({ onBack, profilePicture, onProfilePictureChange }:
               />
             </div>
             <div className="flex-1">
-              <h2 className="mb-1">GameVault User</h2>
+              <h2 className="mb-1">VAULTED User</h2>
               <p className="text-muted-foreground mb-3">Member since October 2024</p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-[var(--gaming-green)]">

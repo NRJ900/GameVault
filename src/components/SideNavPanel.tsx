@@ -2,6 +2,13 @@ import { Home, Clock, Trophy, Star, Settings, ChevronLeft, ChevronRight, Externa
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
+
+import SteamIcon from "../Public/steam-icon.png";
+import EpicIcon from "../Public/Epic-Games.png";
+import GogIcon from "../Public/gog-icon.jpg";
+
+import VaultedIcon from "../Public/Vaulted.png";
 
 import { Game } from "../types";
 
@@ -14,13 +21,14 @@ interface SideNavPanelProps {
   onGameClick?: (game: Game) => void;
   onGameContextMenu?: (e: React.MouseEvent, game: Game) => void;
   onMouseEnter?: () => void;
+  onRecentlyPlayedClick?: () => void;
 }
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "my-stack", label: "My Stack", icon: Layers },
-  { id: "achievements", label: "Achievements", icon: Trophy },
   { id: "favorites", label: "Favorites", icon: Star },
+  { id: "achievements", label: "Achievements", icon: Trophy },
   { id: "continue-playing", label: "Continue Playing", icon: PlayCircle },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -30,23 +38,48 @@ const launchers = [
     id: "steam",
     name: "Steam",
     color: "#1b2838",
-    detected: true,
+    icon: (
+      <img src={SteamIcon} alt="Steam" className="w-5 h-5 object-contain" />
+    ),
+    url: "https://store.steampowered.com",
+    protocol: "steam://"
   },
   {
     id: "epic",
     name: "Epic Games",
     color: "#2a2a2a",
-    detected: true,
+    icon: (
+      <img src={EpicIcon} alt="Epic Games" className="w-5 h-5 object-contain" />
+    ),
+    url: "https://store.epicgames.com",
+    protocol: "com.epicgames.launcher://"
   },
   {
     id: "gog",
     name: "GOG Galaxy",
     color: "#86328a",
-    detected: false,
+    icon: (
+      <img src={GogIcon} alt="GOG Galaxy" className="w-5 h-5 object-contain rounded-sm" />
+    ),
+    url: "https://www.gog.com",
+    protocol: "goggalaxy://"
   },
 ];
 
-export function SideNavPanel({ isCollapsed, onToggle, activeView, onViewChange, recentGames = [], onGameClick, onGameContextMenu, onMouseEnter }: SideNavPanelProps) {
+export function SideNavPanel({ isCollapsed, onToggle, activeView, onViewChange, recentGames = [], onGameClick, onGameContextMenu, onMouseEnter, onRecentlyPlayedClick }: SideNavPanelProps) {
+  const [installedLaunchers, setInstalledLaunchers] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const checkLaunchers = async () => {
+      const status: Record<string, boolean> = {};
+      for (const launcher of launchers) {
+        const isInstalled = await window.ipcRenderer.checkAppInstalled(launcher.id as any);
+        status[launcher.id] = isInstalled;
+      }
+      setInstalledLaunchers(status);
+    };
+    checkLaunchers();
+  }, []);
   return (
     <motion.div
       animate={{ width: isCollapsed ? 80 : 240 }}
@@ -63,6 +96,25 @@ export function SideNavPanel({ isCollapsed, onToggle, activeView, onViewChange, 
       >
         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </Button>
+
+      {/* Logo / Brand */}
+      <div className={`px-4 pb-2 pt-6 flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center shadow-lg shadow-[var(--gaming-purple)]/20 flex-shrink-0 overflow-hidden">
+          <img src={VaultedIcon} alt="Vaulted" className="w-full h-full object-cover" />
+        </div>
+        <AnimatePresence>
+          {!isCollapsed && (
+            <motion.span
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)] whitespace-nowrap overflow-hidden"
+            >
+              VAULTED
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Navigation Items */}
       <nav className="flex-1 pt-8 px-3 flex flex-col overflow-y-auto">
@@ -131,7 +183,13 @@ export function SideNavPanel({ isCollapsed, onToggle, activeView, onViewChange, 
               exit={{ opacity: 0, height: 0 }}
               className="mt-4 pt-4 border-t border-white/10 flex-shrink-0"
             >
-              <p className="text-xs text-muted-foreground mb-3 px-1">Recently Played</p>
+              <Button
+                variant="ghost"
+                onClick={onRecentlyPlayedClick}
+                className="w-full justify-start px-2 mb-3 text-xs text-muted-foreground hover:text-foreground hover:bg-white/5"
+              >
+                Recently Played
+              </Button>
               <div className="space-y-2">
                 {recentGames.slice(0, 2).map((game) => (
                   <motion.button
@@ -183,58 +241,55 @@ export function SideNavPanel({ isCollapsed, onToggle, activeView, onViewChange, 
             </motion.p>
           )}
           <div className="space-y-2">
-            {launchers.map((launcher) => (
-              <motion.button
-                key={launcher.id}
-                onClick={async () => {
-                  let protocol = "";
-                  if (launcher.id === "steam") protocol = "steam://";
-                  else if (launcher.id === "epic") protocol = "com.epicgames.launcher://";
-                  else if (launcher.id === "gog") protocol = "goggalaxy://";
-
-                  if (protocol) {
-                    const success = await window.ipcRenderer.launchExternal(protocol);
-                    if (success) {
-                      toast.success(`Opening ${launcher.name}...`);
+            {launchers.map((launcher) => {
+              const isInstalled = installedLaunchers[launcher.id];
+              return (
+                <motion.button
+                  key={launcher.id}
+                  onClick={async () => {
+                    if (isInstalled) {
+                      const success = await window.ipcRenderer.launchExternal(launcher.protocol);
+                      if (success) {
+                        toast.success(`Opening ${launcher.name}...`);
+                      } else {
+                        toast.error(`Failed to open ${launcher.name}`);
+                      }
                     } else {
-                      toast.error(`Failed to open ${launcher.name}`);
+                      window.ipcRenderer.launchExternal(launcher.url);
+                      toast.info(`Opening ${launcher.name} website`);
                     }
-                  } else {
-                    toast.error(`${launcher.name} protocol not supported yet`);
-                  }
-                }}
-                whileHover={{ x: 4 }}
-                whileTap={{ scale: 0.95 }}
-                disabled={!launcher.detected}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative group ${launcher.detected
-                  ? "hover:bg-sidebar-accent text-sidebar-foreground"
-                  : "opacity-40 cursor-not-allowed text-sidebar-foreground"
-                  }`}
-              >
-                <div
-                  className="w-5 h-5 rounded-md flex-shrink-0"
-                  style={{ backgroundColor: launcher.color }}
-                />
+                  }}
+                  whileHover={{ x: 4 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative group hover:bg-sidebar-accent text-sidebar-foreground"
+                >
+                  <div
+                    className="w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: "transparent" }}
+                  >
+                    {launcher.icon}
+                  </div>
 
-                <AnimatePresence>
+                  <AnimatePresence>
+                    {!isCollapsed && (
+                      <motion.span
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: "auto" }}
+                        exit={{ opacity: 0, width: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-sm whitespace-nowrap overflow-hidden flex-1 text-left"
+                      >
+                        {launcher.name}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+
                   {!isCollapsed && (
-                    <motion.span
-                      initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: "auto" }}
-                      exit={{ opacity: 0, width: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="text-sm whitespace-nowrap overflow-hidden flex-1 text-left"
-                    >
-                      {launcher.name}
-                    </motion.span>
+                    <ExternalLink className={`w-3 h-3 transition-opacity ${isInstalled ? "opacity-0 group-hover:opacity-50" : "opacity-50 text-muted-foreground"}`} />
                   )}
-                </AnimatePresence>
-
-                {launcher.detected && !isCollapsed && (
-                  <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity" />
-                )}
-              </motion.button>
-            ))}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
       </nav>

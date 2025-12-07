@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     // Custom APIs
     selectGameExe: () => ipcRenderer.invoke('select-game-exe'),
     launchGame: (game: { executablePath: string; steamAppId?: string }) => ipcRenderer.invoke('launch-game', game),
-    scanGames: () => ipcRenderer.invoke('scan-games'),
+    scanGames: (path?: string) => ipcRenderer.invoke('scan-games', path),
     openPath: (path: string) => ipcRenderer.invoke('open-path', path),
     saveData: (key: string, data: any, encrypt: boolean = false) => ipcRenderer.invoke('save-data', key, data, encrypt),
     loadData: (key: string) => ipcRenderer.invoke('load-data', key),
@@ -36,4 +36,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     minimize: () => ipcRenderer.invoke('window-minimize'),
     maximize: () => ipcRenderer.invoke('window-maximize'),
     close: () => ipcRenderer.invoke('window-close'),
+    checkAppInstalled: (appId: 'steam' | 'epic' | 'gog') => ipcRenderer.invoke('check-app-installed', appId),
+    getGameScreenshots: (gameName: string) => ipcRenderer.invoke('get-game-screenshots', gameName),
 })

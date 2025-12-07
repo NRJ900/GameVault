@@ -21,6 +21,8 @@ interface TopNavBarProps {
   onStoreClick?: () => void;
   notifications?: Notification[];
   onMessagesClick?: () => void;
+  activeView?: string;
+  onNavigate?: (view: string) => void;
 }
 
 export function TopNavBar({
@@ -38,27 +40,7 @@ export function TopNavBar({
   return (
     <div className="sticky top-0 z-40 backdrop-blur-xl bg-background/80 border-b border-white/10" style={{ WebkitAppRegion: "drag" } as any}>
       <div className="flex items-center justify-between px-6 py-4">
-        {/* Logo / Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center">
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-          </div>
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)]">
-            GameVault
-          </span>
-        </div>
+        {/* Logo / Brand - Moved to Sidebar */}
 
         {/* Search Bar */}
         <div className="flex-1 max-w-xl mx-8 relative group" style={{ WebkitAppRegion: "no-drag" } as any}>
@@ -128,8 +110,8 @@ export function TopNavBar({
             <DropdownMenuTrigger asChild>
               <button className="focus:outline-none">
                 <Avatar className="w-10 h-10 cursor-pointer ring-2 ring-transparent hover:ring-[var(--gaming-accent)] transition-all">
-                  <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=GameVault" />
-                  <AvatarFallback>GV</AvatarFallback>
+                  <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Jameson&radius=50&backgroundColor=transparent&backgroundType=gradientLinear&accessories=eyepatch,prescription01,prescription02,round,sunglasses,wayfarers" />
+                  <AvatarFallback>V</AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>

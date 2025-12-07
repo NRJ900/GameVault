@@ -13,9 +13,36 @@ interface FavoritesProps {
   onTitleClick?: (game: Game) => void;
 }
 
+import { SortControl, SortOption, SortDirection } from "./SortControl";
+import { useState } from "react";
+
 export function Favorites({ games, onBack, onGameClick, onGameContextMenu, onTitleClick }: FavoritesProps) {
-  // Mock: For now, show top 3 most played games as favorites
-  const favoriteGames = [...games].sort((a, b) => b.hoursPlayed - a.hoursPlayed).slice(0, 3);
+  const [sortBy, setSortBy] = useState<SortOption>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Filter favorite games
+  const favoriteGames = games.filter(g => g.isFavorite);
+
+  // Sort favorite games
+  const sortedFavorites = [...favoriteGames].sort((a, b) => {
+    let comparison = 0;
+
+    switch (sortBy) {
+      case "name":
+        comparison = a.title.localeCompare(b.title);
+        break;
+      case "playtime":
+        comparison = (a.hoursPlayed || 0) - (b.hoursPlayed || 0);
+        break;
+      case "lastPlayed":
+        const timeA = a.lastPlayedTimestamp || (a.lastPlayed === "Never" ? 0 : 1);
+        const timeB = b.lastPlayedTimestamp || (b.lastPlayed === "Never" ? 0 : 1);
+        comparison = timeA - timeB;
+        break;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
 
   return (
     <div className="size-full overflow-y-auto">
@@ -31,19 +58,27 @@ export function Favorites({ games, onBack, onGameClick, onGameContextMenu, onTit
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center">
-                <Star className="w-6 h-6 text-white fill-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center">
+                  <Star className="w-6 h-6 text-white fill-white" />
+                </div>
+                <div>
+                  <h1>Favorites</h1>
+                  <p className="text-muted-foreground">Your handpicked collection</p>
+                </div>
               </div>
-              <div>
-                <h1>Favorites</h1>
-                <p className="text-muted-foreground">Your handpicked collection</p>
-              </div>
+              <SortControl
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortChange={setSortBy}
+                onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+              />
             </div>
           </div>
         </div>
 
-        {favoriteGames.length === 0 ? (
+        {sortedFavorites.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[500px]">
             <motion.div
               animate={{
@@ -84,7 +119,7 @@ export function Favorites({ games, onBack, onGameClick, onGameContextMenu, onTit
                 <div>
                   <h3 className="mb-1">Your Favorite Games</h3>
                   <p className="text-sm text-muted-foreground">
-                    {favoriteGames.length} games marked as favorites
+                    {sortedFavorites.length} games marked as favorites
                   </p>
                 </div>
               </div>
@@ -97,7 +132,7 @@ export function Favorites({ games, onBack, onGameClick, onGameContextMenu, onTit
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              {favoriteGames.map((game, index) => (
+              {sortedFavorites.map((game, index) => (
                 <motion.div
                   key={game.id}
                   initial={{ opacity: 0, y: 20 }}

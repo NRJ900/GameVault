@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Game } from "../types";
 import { getGameDetails } from "../data/mockGameDetails";
 import { useState, useRef, useEffect } from "react";
-import { rawgService, RawgGameDetails } from "../services/rawgService";
+import { rawgService, RawgGameDetails } from "@/services/rawgService";
 
 
 interface GameDetailsProps {

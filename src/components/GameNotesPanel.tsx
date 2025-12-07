@@ -1,55 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { BookMarked, CheckSquare, Image, Save, X } from "lucide-react";
+import { BookMarked, Image, Save, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
 
 
 
-interface Achievement {
-  name: string;
-  completed: boolean;
-}
-
 interface GameNotesPanelProps {
   gameTitle: string;
   onClose: () => void;
   initialNotes?: string;
-  achievements?: Achievement[];
-  screenshots?: string[];
 }
 
 export function GameNotesPanel({
   gameTitle,
   onClose,
   initialNotes = "",
-  achievements = [],
-  screenshots = [],
 }: GameNotesPanelProps) {
   const [notes, setNotes] = useState(initialNotes);
-  const [checklist, setChecklist] = useState<Achievement[]>(achievements);
-  const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [screenshots, setScreenshots] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadScreenshots = async () => {
+      const shots = await window.ipcRenderer.getGameScreenshots(gameTitle);
+      setScreenshots(shots);
+    };
+    loadScreenshots();
+  }, [gameTitle]);
 
   const handleSave = () => {
     toast.success("Notes saved!");
     onClose();
-  };
-
-  const toggleChecklistItem = (index: number) => {
-    setChecklist(
-      checklist.map((item, i) =>
-        i === index ? { ...item, completed: !item.completed } : item
-      )
-    );
-  };
-
-  const addChecklistItem = () => {
-    if (!newChecklistItem.trim()) return;
-    setChecklist([...checklist, { name: newChecklistItem, completed: false }]);
-    setNewChecklistItem("");
   };
 
   return (
@@ -84,9 +67,8 @@ export function GameNotesPanel({
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
           <Tabs defaultValue="notes" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="notes">Notes</TabsTrigger>
-              <TabsTrigger value="checklist">Checklist</TabsTrigger>
               <TabsTrigger value="screenshots">Screenshots</TabsTrigger>
             </TabsList>
 
@@ -103,70 +85,43 @@ export function GameNotesPanel({
               </div>
             </TabsContent>
 
-            {/* Checklist Tab */}
-            <TabsContent value="checklist" className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  value={newChecklistItem}
-                  onChange={(e) => setNewChecklistItem(e.target.value)}
-                  placeholder="Add achievement or task..."
-                  onKeyPress={(e) => e.key === "Enter" && addChecklistItem()}
-                />
-                <Button onClick={addChecklistItem}>Add</Button>
-              </div>
-
-              <div className="space-y-2">
-                {checklist.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                  >
-                    <button
-                      onClick={() => toggleChecklistItem(index)}
-                      className="flex-shrink-0"
-                    >
-                      <CheckSquare
-                        className={`w-5 h-5 ${item.completed
-                          ? "text-[var(--gaming-green)] fill-[var(--gaming-green)]/20"
-                          : "text-muted-foreground"
-                          }`}
-                      />
-                    </button>
-                    <span
-                      className={`flex-1 ${item.completed
-                        ? "line-through text-muted-foreground"
-                        : ""
-                        }`}
-                    >
-                      {item.name}
-                    </span>
-                  </motion.div>
-                ))}
-
-                {checklist.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">
-                    No checklist items yet. Add your first task above!
-                  </p>
-                )}
-              </div>
-            </TabsContent>
-
             {/* Screenshots Tab */}
             <TabsContent value="screenshots" className="space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs"
+                  onClick={() => {
+                    if (screenshots.length > 0) {
+                      // Open folder of the first screenshot
+                      window.ipcRenderer.invoke('open-screenshots-folder', gameTitle);
+                    } else {
+                      window.ipcRenderer.invoke('open-screenshots-folder', gameTitle);
+                    }
+                  }}
+                >
+                  <Image className="w-4 h-4" />
+                  Browse Folder
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 {screenshots.length > 0 ? (
                   screenshots.map((screenshot, index) => (
                     <div
                       key={index}
-                      className="aspect-video rounded-lg overflow-hidden bg-white/5"
+                      className="aspect-video rounded-lg overflow-hidden bg-white/5 group relative"
                     >
                       <img
                         src={screenshot}
                         alt={`Screenshot ${index + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        onClick={() => window.ipcRenderer.openPath(screenshot.replace('media://', ''))}
                       />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <p className="text-xs text-white font-medium">Click to Open</p>
+                      </div>
                     </div>
                   ))
                 ) : (

@@ -13,6 +13,8 @@ interface ThemeStoreProps {
     onPurchaseTheme: (theme: Theme) => void;
     onPurchaseFeature: (feature: string, cost: number) => void;
     onBack: () => void;
+    currentTheme: string;
+    onEquip: (themeId: string) => void;
 }
 
 export const availableThemes: Theme[] = [
@@ -80,6 +82,120 @@ export const availableThemes: Theme[] = [
             border: "#5b21b6",
         },
     },
+    {
+        id: "midnight",
+        name: "Midnight Purple",
+        description: "Deep purple tones for a mysterious and elegant look.",
+        price: 400,
+        isPremium: true,
+        colors: {
+            background: "#1e1b4b",
+            foreground: "#e0e7ff",
+            primary: "#818cf8",
+            secondary: "#4f46e5",
+            accent: "#818cf8",
+            muted: "#6366f1",
+            border: "#312e81",
+        },
+    },
+    {
+        id: "solar",
+        name: "Solar Flare",
+        description: "Bright and energetic orange tones to light up your library.",
+        price: 450,
+        isPremium: true,
+        colors: {
+            background: "#451a03",
+            foreground: "#fff7ed",
+            primary: "#fb923c",
+            secondary: "#ea580c",
+            accent: "#fb923c",
+            muted: "#fdba74",
+            border: "#7c2d12",
+        },
+    },
+    {
+        id: "mint",
+        name: "Minty Fresh",
+        description: "Clean and refreshing mint greens for a modern aesthetic.",
+        price: 350,
+        isPremium: true,
+        colors: {
+            background: "#042f2e",
+            foreground: "#f0fdfa",
+            primary: "#2dd4bf",
+            secondary: "#0d9488",
+            accent: "#2dd4bf",
+            muted: "#5eead4",
+            border: "#115e59",
+        },
+    },
+    {
+        id: "royal",
+        name: "Royal Gold",
+        description: "Luxurious gold and black for a premium experience.",
+        price: 600,
+        isPremium: true,
+        colors: {
+            background: "#000000",
+            foreground: "#fefce8",
+            primary: "#fbbf24",
+            secondary: "#d97706",
+            accent: "#fbbf24",
+            muted: "#fde047",
+            border: "#451a03",
+        },
+    },
+    {
+        id: "crimson",
+        name: "Crimson Red",
+        description: "Bold and aggressive red tones for the competitive gamer.",
+        price: 400,
+        isPremium: true,
+        colors: {
+            background: "#450a0a",
+            foreground: "#fef2f2",
+            primary: "#f87171",
+            secondary: "#dc2626",
+            accent: "#f87171",
+            muted: "#fca5a5",
+            border: "#7f1d1d",
+        },
+    },
+    {
+        id: "nebula",
+        name: "Nebula",
+        description: "A dynamic, animated theme inspired by deep space.",
+        price: 1000,
+        isPremium: true,
+        isAnimated: true,
+        colors: {
+            background: "#1a1625",
+            foreground: "#e2e8f0",
+            primary: "#4e207dff",
+            secondary: "#616ff6ff",
+            accent: "#2dd4bf",
+            muted: "#312e81",
+            border: "#9738caff",
+        },
+    },
+    {
+        id: "aurora",
+        name: "Aurora",
+        description: "Shifting lights of the north in an animated display.",
+        price: 1000,
+        isPremium: true,
+        isAnimated: true,
+        colors: {
+            background: "#022c22",
+            foreground: "#ecfdf5",
+            primary: "#34d399",
+            secondary: "#0ea5e9",
+            accent: "#a7f3d0",
+            muted: "#115e59",
+            border: "#0f766e",
+        },
+    },
 ];
 
 const FEATURE_COST = 1000;
@@ -91,6 +207,8 @@ export function ThemeStore({
     onPurchaseTheme,
     onPurchaseFeature,
     onBack,
+    currentTheme,
+    onEquip,
 }: ThemeStoreProps) {
     return (
         <div className="size-full overflow-y-auto">
@@ -222,26 +340,40 @@ export function ThemeStore({
                                                 {theme.description}
                                             </p>
 
-                                            <Button
-                                                className="w-full"
-                                                variant={isOwned ? "secondary" : "default"}
-                                                disabled={isOwned || !canAfford}
-                                                onClick={() => onPurchaseTheme(theme)}
-                                            >
-                                                {isOwned ? (
-                                                    "In Library"
-                                                ) : canAfford ? (
-                                                    <>
-                                                        <ShoppingBag className="w-4 h-4 mr-2" />
-                                                        Purchase
-                                                    </>
+                                            {isOwned ? (
+                                                currentTheme === theme.id ? (
+                                                    <Button className="w-full bg-green-500/20 text-green-500 hover:bg-green-500/30 cursor-default">
+                                                        <Check className="w-4 h-4 mr-2" />
+                                                        Equipped
+                                                    </Button>
                                                 ) : (
-                                                    <>
-                                                        <Lock className="w-4 h-4 mr-2" />
-                                                        Insufficient Points
-                                                    </>
-                                                )}
-                                            </Button>
+                                                    <Button
+                                                        className="w-full"
+                                                        variant="secondary"
+                                                        onClick={() => onEquip(theme.id)}
+                                                    >
+                                                        Equip
+                                                    </Button>
+                                                )
+                                            ) : (
+                                                <Button
+                                                    className="w-full"
+                                                    disabled={!canAfford}
+                                                    onClick={() => onPurchaseTheme(theme)}
+                                                >
+                                                    {canAfford ? (
+                                                        <>
+                                                            <ShoppingBag className="w-4 h-4 mr-2" />
+                                                            Purchase
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Lock className="w-4 h-4 mr-2" />
+                                                            Insufficient Points
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
                                         </div>
                                     </Card>
                                 </motion.div>

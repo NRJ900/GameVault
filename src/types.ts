@@ -46,6 +46,7 @@ export interface Theme {
     price: number;
     isPremium: boolean;
     description: string;
+    isAnimated?: boolean;
 }
 
 export interface GamificationState {
@@ -60,7 +61,7 @@ export interface UserStats {
     totalPlaytimeMinutes: number;
     totalLaunches: number;
     gamesLaunched: string[]; // IDs of games launched at least once
-    gamesLaunchedViaApp: string[]; // IDs of games launched via GameVault
+    gamesLaunchedViaApp: string[]; // IDs of games launched via VAULTED launcher
     gamePlaytime: Record<string, number>; // gameId -> minutes played
     claimedAchievements: string[]; // IDs of claimed milestones
 }

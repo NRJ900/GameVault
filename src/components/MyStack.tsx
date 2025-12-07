@@ -16,6 +16,7 @@ import {
 import { Card } from "./ui/card";
 
 import { Game, GameCollection } from "../types";
+import { SortControl, SortOption, SortDirection } from "./SortControl";
 
 interface MyStackProps {
   games: Game[];
@@ -56,6 +57,31 @@ export function MyStack({
   const [selectedColor, setSelectedColor] = useState(collectionColors[0]);
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [draggedGameId, setDraggedGameId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Sorting helper
+  const sortGames = (gamesToSort: Game[]) => {
+    return [...gamesToSort].sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case "name":
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case "playtime":
+          comparison = (a.hoursPlayed || 0) - (b.hoursPlayed || 0);
+          break;
+        case "lastPlayed":
+          const timeA = a.lastPlayedTimestamp || (a.lastPlayed === "Never" ? 0 : 1);
+          const timeB = b.lastPlayedTimestamp || (b.lastPlayed === "Never" ? 0 : 1);
+          comparison = timeA - timeB;
+          break;
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  };
+
+  const sortedLibraryGames = sortGames(games);
 
   const handleCreateCollection = () => {
     if (newCollectionName.trim()) {
@@ -166,13 +192,15 @@ export function MyStack({
               </div>
             </div>
           </div>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)] text-white border-0 rounded-xl"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Collection
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)] text-white border-0 rounded-xl"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              New Collection
+            </Button>
+          </div>
         </div>
 
         {/* Collections Grid */}
@@ -199,6 +227,7 @@ export function MyStack({
               const collectionGames = games.filter((game) =>
                 collection.gameIds.includes(game.id)
               );
+              const sortedCollectionGames = sortGames(collectionGames);
               const isExpanded = expandedCollections.has(collection.id);
 
               return (
@@ -286,7 +315,7 @@ export function MyStack({
                               className="overflow-hidden mb-4"
                             >
                               <div className="space-y-2 pt-2 border-t border-white/10">
-                                {collectionGames.map((game) => (
+                                {sortedCollectionGames.map((game) => (
                                   <motion.div
                                     key={game.id}
                                     initial={{ opacity: 0, x: -20 }}
@@ -367,11 +396,21 @@ export function MyStack({
 
       {/* Library Section */}
       <div className="mt-12 pt-8 border-t border-white/10">
-        <h2 className="text-xl font-bold mb-6">Game Library</h2>
-        <p className="text-muted-foreground mb-6">Drag games from here to your collections above</p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold mb-1">Game Library</h2>
+            <p className="text-muted-foreground">Drag games from here to your collections above</p>
+          </div>
+          <SortControl
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSortChange={setSortBy}
+            onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+          />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {games.map((game) => (
+          {sortedLibraryGames.map((game) => (
             <div
               key={game.id}
               draggable

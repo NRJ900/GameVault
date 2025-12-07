@@ -24,12 +24,29 @@ export function Achievements({ userStats, onBack, onClaim, onClaimAll }: Achieve
   const [activeTab, setActiveTab] = useState<string>("all");
 
   // Calculate dynamic achievements
-  const achievements = MILESTONES.map(m => {
+  // Calculate dynamic achievements
+  const allAchievements = MILESTONES.map(m => {
     const status = m.condition(userStats);
     return {
       ...m,
       ...status
     };
+  });
+
+  // Progressive Disclosure: Only show level 1, or levels where the previous level is unlocked
+  const achievements = allAchievements.filter((ach, _, array) => {
+    const match = ach.id.match(/^(.+)_(\d+)$/);
+    if (!match) return true;
+
+    const [, baseId, levelStr] = match;
+    const level = parseInt(levelStr);
+
+    if (level === 1) return true;
+
+    const prevId = `${baseId}_${level - 1}`;
+    const prevAch = array.find(a => a.id === prevId);
+
+    return prevAch ? prevAch.unlocked : true;
   });
 
   // Filter achievements

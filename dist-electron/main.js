@@ -1,4 +1,797 @@
-"use strict";const i=require("electron"),v=require("node:child_process"),d=require("node:path"),c=require("node:fs"),_=require("node:crypto");class V{constructor(t){const s=i.app.getPath("userData");this.path=d.join(s,t);const r="game-vault-secure-storage-key-v1";this.encryptionKey=_.scryptSync(r,"salt",32)}get(t){try{if(!c.existsSync(this.path))return;const r=JSON.parse(c.readFileSync(this.path,"utf8"))[t];return r?typeof r=="string"&&r.startsWith("ENC:")?this.decrypt(r.substring(4)):r:void 0}catch(s){console.error("Error reading store:",s);return}}set(t,s,r=!1){try{let e={};c.existsSync(this.path)&&(e=JSON.parse(c.readFileSync(this.path,"utf8"))),r?e[t]="ENC:"+this.encrypt(s):e[t]=s,c.writeFileSync(this.path,JSON.stringify(e,null,2))}catch(e){console.error("Error writing to store:",e)}}encrypt(t){const s=_.randomBytes(16),r=_.createCipheriv("aes-256-cbc",this.encryptionKey,s);let e=r.update(JSON.stringify(t));return e=Buffer.concat([e,r.final()]),s.toString("hex")+":"+e.toString("hex")}decrypt(t){const s=t.split(":"),r=Buffer.from(s.shift(),"hex"),e=Buffer.from(s.join(":"),"hex"),C=_.createDecipheriv("aes-256-cbc",this.encryptionKey,r);let f=C.update(e);return f=Buffer.concat([f,C.final()]),JSON.parse(f.toString())}}const z=new V("data.json");i.ipcMain.handle("save-data",async(n,t,s,r=!1)=>(z.set(t,s,r),!0));i.ipcMain.handle("load-data",async(n,t)=>z.get(t));i.ipcMain.handle("select-game-exe",async()=>(await i.dialog.showOpenDialog({properties:["openFile"],filters:[{name:"Executables",extensions:["exe"]}]})).filePaths[0]);i.ipcMain.handle("select-folder",async()=>(await i.dialog.showOpenDialog({properties:["openDirectory"]})).filePaths[0]);i.ipcMain.handle("save-backup",async(n,t)=>{const s=await i.dialog.showSaveDialog({title:"Save Backup",defaultPath:"gamevault-backup.json",filters:[{name:"JSON",extensions:["json"]}]});return!s.canceled&&s.filePath?(c.writeFileSync(s.filePath,t),!0):!1});i.ipcMain.handle("load-backup",async()=>{const n=await i.dialog.showOpenDialog({title:"Load Backup",filters:[{name:"JSON",extensions:["json"]}],properties:["openFile"]});if(!n.canceled&&n.filePaths.length>0){const t=c.readFileSync(n.filePaths[0],"utf-8");return JSON.parse(t)}return null});i.ipcMain.handle("open-path",async(n,t)=>{i.shell.showItemInFolder(t)});i.ipcMain.handle("select-image",async()=>(await i.dialog.showOpenDialog({properties:["openFile"],filters:[{name:"Images",extensions:["jpg","png","webp","jpeg"]}]})).filePaths[0]);i.ipcMain.handle("launch-external",async(n,t)=>{try{return await i.shell.openExternal(t),!0}catch(s){return console.error("Failed to open external protocol:",s),!1}});i.ipcMain.handle("window-minimize",()=>{a==null||a.minimize()});i.ipcMain.handle("window-maximize",()=>{a!=null&&a.isMaximized()?a.unmaximize():a==null||a.maximize()});i.ipcMain.handle("window-close",()=>{a==null||a.close()});i.ipcMain.handle("launch-game",async(n,t)=>new Promise((s,r)=>{const e=d.basename(t.executablePath);console.log(`Preparing to launch ${e}...`),t.steamAppId?(console.log(`Launching Steam game: ${t.steamAppId}`),i.shell.openExternal(`steam://run/${t.steamAppId}`)):(console.log(`Launching executable: ${t.executablePath}`),v.spawn(t.executablePath,[],{detached:!0,stdio:"ignore",cwd:d.dirname(t.executablePath)}).unref()),s(!0);let C=0;const f=30,l=()=>{v.exec("tasklist /FO CSV /NH",(b,F)=>{b&&console.error("Tasklist error:",b);const y=F.toLowerCase(),E=e.toLowerCase();if(y.includes(`"${E}"`)){console.log(`Game process ${e} detected! Monitoring...`);const k=setInterval(()=>{v.exec("tasklist /FO CSV /NH",(A,o)=>{o.toLowerCase().includes(`"${E}"`)||(clearInterval(k),console.log(`Game process ${e} exited.`),a==null||a.webContents.send("game-exited"))})},2e3)}else C++,C<f?setTimeout(l,2e3):(console.log(`Timed out waiting for ${e} to start.`),a==null||a.webContents.send("game-exited"))})};setTimeout(l,2e3)}));i.ipcMain.handle("stop-game",async(n,t)=>{const s=d.basename(t);return console.log(`Stopping game: ${s}`),new Promise(r=>{v.exec(`taskkill /IM "${s}" /F`,(e,C,f)=>{var l;e?(console.error(`Failed to kill process ${s}:`,e),f.includes("Access is denied")||(l=e.message)!=null&&l.includes("Access is denied")?(console.log("Access denied. Retrying with Admin privileges..."),v.exec(`powershell Start-Process taskkill -ArgumentList '/IM "${s}" /F' -Verb RunAs`,b=>{b?(console.error("Failed to kill process as Admin:",b),r(!1)):(console.log(`Successfully triggered Admin kill for ${s}`),r(!0))})):r(!1)):(console.log(`Successfully killed ${s}`),r(!0))})})});const O=process.env.VITE_DEV_SERVER_URL;let a=null;i.ipcMain.handle("scan-games",async()=>{console.log("Starting smart game scan...");const n=[],s=await(async()=>new Promise(o=>{v.exec("wmic logicaldisk get name",(m,p)=>{if(m){o(["C:","D:","E:"]);return}const h=p.split(`
-`).map(S=>S.trim()).filter(S=>/^[A-Z]:$/.test(S));o(h.length>0?h:["C:","D:","E:"])})}))();console.log("Detected drives:",s);const r=["unins","setup","update","crash","config","redist","framework","helper","sys","dx","vcredist","microsoft","windows","common files","internet explorer","reference assemblies","windows defender"],e=["steam_api.dll","steam_api64.dll","galaxy.dll","UnityPlayer.dll","fmod.dll","D3Dcompiler_47.dll","os_api.dll","bink2w64.dll"],C=o=>{try{return c.readdirSync(o).some(m=>e.includes(m))}catch{return!1}},f=o=>{const m=o.match(/"name"\s+"([^"]+)"/i),p=o.match(/"installdir"\s+"([^"]+)"/i),h=o.match(/"appid"\s+"(\d+)"/i);return m&&p?{name:m[1],installDir:p[1],appId:h?h[1]:void 0}:null},l=["C:\\Program Files (x86)\\Steam","C:\\Program Files\\Steam"];for(const o of s)l.push(`${o}\\SteamLibrary`),l.push(`${o}\\Steam`);const b=["C:\\Program Files (x86)\\Steam","C:\\Program Files\\Steam",...s.map(o=>`${o}\\Steam`)];for(const o of b){const m=d.join(o,"steamapps","libraryfolders.vdf");if(c.existsSync(m))try{const h=c.readFileSync(m,"utf-8").match(/"path"\s+"([^"]+)"/g);h&&h.forEach(S=>{const u=S.split('"')[3].replace(/\\\\/g,"\\");l.includes(u)||l.push(u)})}catch(p){console.error("Error parsing libraryfolders.vdf:",p)}}for(const o of l){const m=d.join(o,"steamapps");if(c.existsSync(m))try{const p=c.readdirSync(m);for(const h of p)if(h.startsWith("appmanifest_")&&h.endsWith(".acf"))try{const S=c.readFileSync(d.join(m,h),"utf-8"),u=f(S);if(u){const $=d.join(m,"common",u.installDir);if(c.existsSync($))try{const P=c.readdirSync($).filter(x=>x.toLowerCase().endsWith(".exe"));let w="";if(w=P.find(x=>x.toLowerCase().includes(u.installDir.toLowerCase()))||"",w||(w=P.find(x=>["launcher.exe","game.exe","start.exe"].includes(x.toLowerCase()))||""),!w&&P.length>0){const x=P.map(L=>{try{return{name:L,size:c.statSync(d.join($,L)).size}}catch{return{name:L,size:0}}});x.sort((L,M)=>M.size-L.size),w=x[0].name}w&&n.push({name:u.name,path:d.join($,w),steamAppId:u.appId})}catch{}}}catch{}}catch{}}const F=o=>{if(c.existsSync(o))try{const m=c.readdirSync(o);for(const p of m){if(r.some(S=>p.toLowerCase().includes(S)))continue;const h=d.join(o,p);try{if(c.statSync(h).isDirectory()){const S=o.toLowerCase().includes("program files"),u=C(h);if(S&&!u)continue;if(u||!S){const P=c.readdirSync(h).filter(w=>w.toLowerCase().endsWith(".exe")).filter(w=>!r.some(x=>w.toLowerCase().includes(x)));if(P.length>0){let w=P.find(x=>x.toLowerCase().includes(p.toLowerCase()));if(w||(w=P.sort((x,L)=>c.statSync(d.join(h,L)).size-c.statSync(d.join(h,x)).size)[0]),w){const x=c.statSync(d.join(h,w)).size;if(!u&&x<20*1024*1024)continue;n.push({name:p,path:d.join(h,w)})}}}}}catch{}}}catch{}},y=["C:\\Games","C:\\Program Files\\Epic Games","C:\\Program Files\\GOG Galaxy\\Games","C:\\Program Files (x86)","C:\\Program Files"];for(const o of s)o!=="C:"&&(y.push(`${o}\\Games`),y.push(`${o}\\Epic Games`),y.push(`${o}\\Program Files\\Epic Games`),y.push(`${o}\\GOG Galaxy\\Games`));for(const o of y)F(o);await new Promise(o=>{v.exec('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall" /s',(m,p)=>{var $,G;if(m){o();return}const h=p.split(`
-`);let S="",u="";for(const P of h)if(P.trim().startsWith("DisplayName")&&(S=($=P.split("REG_SZ")[1])==null?void 0:$.trim()),P.trim().startsWith("InstallLocation")&&(u=(G=P.split("REG_SZ")[1])==null?void 0:G.trim()),S&&u&&P.trim()===""){if(u&&c.existsSync(u)){const w=C(u),x=u.toLowerCase().includes("games")||u.toLowerCase().includes("steam")||u.toLowerCase().includes("epic");if(w||x)try{const M=c.readdirSync(u).filter(j=>j.toLowerCase().endsWith(".exe"));let I=M.find(j=>j.toLowerCase().includes(S.toLowerCase()));I||(I=M.sort((j,T)=>c.statSync(d.join(u,T)).size-c.statSync(d.join(u,j)).size)[0]),I&&n.push({name:S,path:d.join(u,I)})}catch{}}S="",u=""}o()})});const D=n.filter((o,m,p)=>m===p.findIndex(h=>h.path===o.path)),k=[],A=new Set;for(const o of D)A.has(o.name)||(A.add(o.name),k.push(o));return console.log(`Scan complete. Found ${k.length} games.`),k});const B=d.join(process.cwd(),"debug_log.txt"),g=n=>{try{c.appendFileSync(B,`[${new Date().toISOString()}] ${n}
-`)}catch(t){console.error("Failed to write to log file:",t)}},q=async(n,t)=>{g(`Attempting to take screenshot for ${n} (Exe: ${t})...`);try{const s=i.screen.getPrimaryDisplay(),r=await i.desktopCapturer.getSources({types:["window","screen"],thumbnailSize:s.size,fetchWindowIcons:!1});let e=null;const C=t?d.basename(t,d.extname(t)).toLowerCase():"";if(e||(e=r.find(f=>f.name.toLowerCase()===n.toLowerCase()),e&&g(`Found window matching game title: ${e.name}`)),!e&&C&&(e=r.find(f=>f.name.toLowerCase().includes(C)),e&&g(`Found window matching executable name: ${e.name}`)),e||(e=r.find(f=>f.name.toLowerCase().includes(n.toLowerCase())),e&&g(`Found window fuzzy matching game title: ${e.name}`)),e||(g("No matching window found. Falling back to primary display."),e=r.find(f=>f.display_id===s.id.toString())||r.find(f=>f.name==="Entire Screen")||r[0]),e){const f=e.thumbnail,l=d.join(i.app.getPath("userData"),"screenshots",n);c.existsSync(l)||c.mkdirSync(l,{recursive:!0});const F=`screenshot-${new Date().toISOString().replace(/[:.]/g,"-")}.png`,y=d.join(l,F);c.writeFileSync(y,f.toPNG()),g(`Screenshot saved to: ${y}`),a==null||a.webContents.send("screenshot-captured",{path:y,gameName:n})}else g("No source found for screenshot.")}catch(s){g(`Failed to take screenshot: ${s}`),console.error("Failed to take screenshot:",s)}},R=(n,t)=>{g(`Attempting to register screenshot shortcut for ${n}`);const s=["F12","CommandOrControl+F12","F9"];let r=!1;for(const e of s)try{if(i.globalShortcut.isRegistered(e)&&(g(`${e} is already registered. Unregistering first...`),i.globalShortcut.unregister(e)),i.globalShortcut.register(e,()=>{g(`${e} pressed - Taking screenshot...`),q(n,t)})){g(`Screenshot shortcut (${e}) registered successfully.`),a==null||a.webContents.send("shortcut-registered",e),r=!0;break}else g(`Failed to register ${e}.`)}catch(C){g(`Error registering ${e}: ${C}`)}r||(g("All shortcut registration attempts failed."),a==null||a.webContents.send("shortcut-registration-failed"))},J=()=>{["F12","CommandOrControl+F12","F9"].forEach(t=>{i.globalShortcut.isRegistered(t)&&(i.globalShortcut.unregister(t),g(`Screenshot shortcut (${t}) unregistered`))})};let N=null;const U=()=>{if(N)return;console.log("Starting global game monitoring..."),g("Starting global game monitoring...");const n=new Set;let t=null;N=setInterval(async()=>{const s=z.get("games");!s||!Array.isArray(s)||s.length===0||v.exec("tasklist /FO CSV /NH",(r,e)=>{if(r){g(`Tasklist error: ${r.message}`);return}const C=e.toLowerCase(),f=new Set;for(const l of s)if(l.executablePath){const b=d.basename(l.executablePath).toLowerCase(),F=l.executablePath.toLowerCase();C.includes(`"${b}"`)&&(f.add(F),n.has(F)||(g(`MATCH FOUND! ${b} started.`),n.add(F),a==null||a.webContents.send("game-detected",l),t=l.title,R(l.title,l.executablePath)))}for(const l of n)if(!f.has(l)){g(`Game exited: ${d.basename(l)}`),n.delete(l);const b=s.find(F=>{var y;return((y=F.executablePath)==null?void 0:y.toLowerCase())===l});if(b&&(a==null||a.webContents.send("game-exited",b),t===b.title&&(J(),t=null,n.size>0))){const F=Array.from(n)[0],y=s.find(E=>{var D;return((D=E.executablePath)==null?void 0:D.toLowerCase())===F});y&&(t=y.title,R(y.title,y.executablePath))}}})},5e3)};function W(){const n=d.join(__dirname,"preload.js");console.log("Preload path:",n),a=new i.BrowserWindow({width:1280,height:800,minWidth:1024,minHeight:600,icon:d.join(process.env.VITE_PUBLIC||"","electron-vite.svg"),webPreferences:{preload:n,nodeIntegration:!0,contextIsolation:!0},frame:!1,titleBarStyle:"hidden",backgroundColor:"#000000"}),a.webContents.on("did-finish-load",()=>{a==null||a.webContents.send("main-process-message",new Date().toLocaleString())}),O&&a.loadURL(O)}i.app.on("window-all-closed",()=>{process.platform!=="darwin"&&(i.app.quit(),a=null)});i.app.on("activate",()=>{i.BrowserWindow.getAllWindows().length===0&&W()});i.app.whenReady().then(()=>{W(),U()});
+"use strict";
+const electron = require("electron");
+const node_child_process = require("node:child_process");
+const path = require("node:path");
+const fs = require("node:fs");
+const crypto = require("node:crypto");
+class Store {
+  constructor(fileName) {
+    const userDataPath = electron.app.getPath("userData");
+    this.path = path.join(userDataPath, fileName);
+    const secret = "game-vault-secure-storage-key-v1";
+    this.encryptionKey = crypto.scryptSync(secret, "salt", 32);
+  }
+  get(key) {
+    try {
+      if (!fs.existsSync(this.path)) {
+        return void 0;
+      }
+      const data = JSON.parse(fs.readFileSync(this.path, "utf8"));
+      const value = data[key];
+      if (!value) return void 0;
+      if (typeof value === "string" && value.startsWith("ENC:")) {
+        return this.decrypt(value.substring(4));
+      }
+      return value;
+    } catch (error) {
+      console.error("Error reading store:", error);
+      return void 0;
+    }
+  }
+  set(key, value, encrypt = false) {
+    try {
+      let data = {};
+      if (fs.existsSync(this.path)) {
+        data = JSON.parse(fs.readFileSync(this.path, "utf8"));
+      }
+      if (encrypt) {
+        data[key] = "ENC:" + this.encrypt(value);
+      } else {
+        data[key] = value;
+      }
+      fs.writeFileSync(this.path, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error("Error writing to store:", error);
+    }
+  }
+  encrypt(text) {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv("aes-256-cbc", this.encryptionKey, iv);
+    let encrypted = cipher.update(JSON.stringify(text));
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString("hex") + ":" + encrypted.toString("hex");
+  }
+  decrypt(text) {
+    const textParts = text.split(":");
+    const iv = Buffer.from(textParts.shift(), "hex");
+    const encryptedText = Buffer.from(textParts.join(":"), "hex");
+    const decipher = crypto.createDecipheriv("aes-256-cbc", this.encryptionKey, iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return JSON.parse(decrypted.toString());
+  }
+}
+const store = new Store("data.json");
+electron.ipcMain.handle("save-data", async (_, key, data, encrypt = false) => {
+  store.set(key, data, encrypt);
+  return true;
+});
+electron.ipcMain.handle("load-data", async (_, key) => {
+  return store.get(key);
+});
+electron.ipcMain.handle("select-game-exe", async () => {
+  const result = await electron.dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [{ name: "Executables", extensions: ["exe"] }]
+  });
+  return result.filePaths[0];
+});
+electron.ipcMain.handle("select-folder", async () => {
+  const result = await electron.dialog.showOpenDialog({
+    properties: ["openDirectory"]
+  });
+  return result.filePaths[0];
+});
+electron.ipcMain.handle("save-backup", async (_, data) => {
+  const result = await electron.dialog.showSaveDialog({
+    title: "Save Backup",
+    defaultPath: "gamevault-backup.json",
+    filters: [{ name: "JSON", extensions: ["json"] }]
+  });
+  if (!result.canceled && result.filePath) {
+    fs.writeFileSync(result.filePath, data);
+    return true;
+  }
+  return false;
+});
+electron.ipcMain.handle("load-backup", async () => {
+  const result = await electron.dialog.showOpenDialog({
+    title: "Load Backup",
+    filters: [{ name: "JSON", extensions: ["json"] }],
+    properties: ["openFile"]
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    const data = fs.readFileSync(result.filePaths[0], "utf-8");
+    return JSON.parse(data);
+  }
+  return null;
+});
+electron.ipcMain.handle("open-path", async (_, filePath) => {
+  electron.shell.showItemInFolder(filePath);
+});
+electron.ipcMain.handle("select-image", async () => {
+  const result = await electron.dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [{ name: "Images", extensions: ["jpg", "png", "webp", "jpeg"] }]
+  });
+  return result.filePaths[0];
+});
+electron.ipcMain.handle("launch-external", async (_, protocol2) => {
+  try {
+    await electron.shell.openExternal(protocol2);
+    return true;
+  } catch (e) {
+    console.error("Failed to open external protocol:", e);
+    return false;
+  }
+});
+electron.ipcMain.handle("window-minimize", () => {
+  win == null ? void 0 : win.minimize();
+});
+electron.ipcMain.handle("window-maximize", () => {
+  if (win == null ? void 0 : win.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win == null ? void 0 : win.maximize();
+  }
+});
+electron.ipcMain.handle("window-close", () => {
+  win == null ? void 0 : win.close();
+});
+electron.ipcMain.handle("launch-game", async (_, game) => {
+  return new Promise((resolve, reject) => {
+    const exeName = path.basename(game.executablePath);
+    console.log(`Preparing to launch ${exeName}...`);
+    if (game.steamAppId) {
+      console.log(`Launching Steam game: ${game.steamAppId}`);
+      electron.shell.openExternal(`steam://run/${game.steamAppId}`);
+    } else {
+      console.log(`Launching executable: ${game.executablePath}`);
+      const gameProcess = node_child_process.spawn(game.executablePath, [], {
+        detached: true,
+        stdio: "ignore",
+        cwd: path.dirname(game.executablePath)
+      });
+      gameProcess.unref();
+    }
+    resolve(true);
+    let attempts = 0;
+    const maxAttempts = 30;
+    const checkProcess = () => {
+      node_child_process.exec("tasklist /FO CSV /NH", (err, stdout) => {
+        if (err) {
+          console.error("Tasklist error:", err);
+        }
+        const processList = stdout.toLowerCase();
+        const targetExe = exeName.toLowerCase();
+        const isRunning = processList.includes(`"${targetExe}"`);
+        if (isRunning) {
+          console.log(`Game process ${exeName} detected! Monitoring...`);
+          const monitorInterval = setInterval(() => {
+            node_child_process.exec("tasklist /FO CSV /NH", (err2, stdout2) => {
+              const currentList = stdout2.toLowerCase();
+              const stillRunning = currentList.includes(`"${targetExe}"`);
+              if (!stillRunning) {
+                clearInterval(monitorInterval);
+                console.log(`Game process ${exeName} exited.`);
+                win == null ? void 0 : win.webContents.send("game-exited");
+              }
+            });
+          }, 2e3);
+        } else {
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(checkProcess, 2e3);
+          } else {
+            console.log(`Timed out waiting for ${exeName} to start.`);
+            win == null ? void 0 : win.webContents.send("game-exited");
+          }
+        }
+      });
+    };
+    setTimeout(checkProcess, 2e3);
+  });
+});
+electron.ipcMain.handle("stop-game", async (_, executablePath) => {
+  const exeName = path.basename(executablePath);
+  console.log(`Stopping game: ${exeName}`);
+  return new Promise((resolve) => {
+    node_child_process.exec(`taskkill /IM "${exeName}" /F`, (err, stdout, stderr) => {
+      var _a;
+      if (err) {
+        console.error(`Failed to kill process ${exeName}:`, err);
+        if (stderr.includes("Access is denied") || ((_a = err.message) == null ? void 0 : _a.includes("Access is denied"))) {
+          console.log("Access denied. Retrying with Admin privileges...");
+          node_child_process.exec(`powershell Start-Process taskkill -ArgumentList '/IM "${exeName}" /F' -Verb RunAs`, (adminErr) => {
+            if (adminErr) {
+              console.error("Failed to kill process as Admin:", adminErr);
+              resolve(false);
+            } else {
+              console.log(`Successfully triggered Admin kill for ${exeName}`);
+              resolve(true);
+            }
+          });
+        } else {
+          resolve(false);
+        }
+      } else {
+        console.log(`Successfully killed ${exeName}`);
+        resolve(true);
+      }
+    });
+  });
+});
+const checkRegistryForPath = (keyPath, valueName) => {
+  return new Promise((resolve) => {
+    node_child_process.exec(`reg query "${keyPath}" /v "${valueName}"`, (err, stdout) => {
+      if (err) {
+        resolve(null);
+        return;
+      }
+      const match = stdout.match(/REG_SZ\s+(.+)/);
+      if (match && match[1]) {
+        resolve(match[1].trim());
+      } else {
+        resolve(null);
+      }
+    });
+  });
+};
+electron.ipcMain.handle("check-app-installed", async (_, appId) => {
+  const commonPaths = {
+    steam: [
+      "C:\\Program Files (x86)\\Steam\\steam.exe",
+      "C:\\Program Files\\Steam\\steam.exe"
+    ],
+    epic: [
+      "C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe",
+      "C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe",
+      "C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe",
+      "C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe"
+    ],
+    gog: [
+      "C:\\Program Files (x86)\\GOG Galaxy\\GalaxyClient.exe",
+      "C:\\Program Files\\GOG Galaxy\\GalaxyClient.exe"
+    ]
+  };
+  const pathsToCheck = commonPaths[appId] || [];
+  for (const p of pathsToCheck) {
+    if (fs.existsSync(p)) {
+      return true;
+    }
+  }
+  try {
+    if (appId === "steam") {
+      const path2 = await checkRegistryForPath("HKCU\\Software\\Valve\\Steam", "SteamExe");
+      if (path2 && fs.existsSync(path2)) return true;
+    } else if (appId === "epic") {
+      let path2 = await checkRegistryForPath("HKLM\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher", "AppDataPath");
+      if (path2) {
+        return true;
+      }
+    } else if (appId === "gog") {
+      const path2 = await checkRegistryForPath("HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient", "clientExecutable");
+      if (path2 && fs.existsSync(path2)) return true;
+    }
+  } catch (e) {
+    console.error(`Registry check failed for ${appId}:`, e);
+  }
+  return false;
+});
+const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+let win = null;
+electron.ipcMain.handle("scan-games", async (_, customPath) => {
+  console.log("Starting smart game scan...", customPath ? `Custom path: ${customPath}` : "Full scan");
+  const foundGames = [];
+  const getDrives = async () => {
+    return new Promise((resolve) => {
+      node_child_process.exec("wmic logicaldisk get name", (error, stdout) => {
+        if (error) {
+          resolve(["C:", "D:", "E:"]);
+          return;
+        }
+        const drives2 = stdout.split("\n").map((line) => line.trim()).filter((line) => /^[A-Z]:$/.test(line));
+        resolve(drives2.length > 0 ? drives2 : ["C:", "D:", "E:"]);
+      });
+    });
+  };
+  const drives = await getDrives();
+  console.log("Detected drives:", drives);
+  const blocklist = [
+    "unins",
+    "setup",
+    "update",
+    "crash",
+    "config",
+    "redist",
+    "framework",
+    "helper",
+    "sys",
+    "dx",
+    "vcredist",
+    "microsoft",
+    "windows",
+    "common files",
+    "internet explorer",
+    "reference assemblies",
+    "windows defender"
+  ];
+  const gameSignatures = [
+    "steam_api.dll",
+    "steam_api64.dll",
+    "galaxy.dll",
+    "UnityPlayer.dll",
+    "fmod.dll",
+    "D3Dcompiler_47.dll",
+    "os_api.dll",
+    "bink2w64.dll"
+  ];
+  const hasGameSignatures = (dir) => {
+    try {
+      return fs.readdirSync(dir).some((f) => gameSignatures.includes(f));
+    } catch {
+      return false;
+    }
+  };
+  const parseAcf = (content) => {
+    const nameMatch = content.match(/"name"\s+"([^"]+)"/i);
+    const installDirMatch = content.match(/"installdir"\s+"([^"]+)"/i);
+    const appIdMatch = content.match(/"appid"\s+"(\d+)"/i);
+    if (nameMatch && installDirMatch) {
+      return {
+        name: nameMatch[1],
+        installDir: installDirMatch[1],
+        appId: appIdMatch ? appIdMatch[1] : void 0
+      };
+    }
+    return null;
+  };
+  const scanManualDir = (rootDir, currentDepth = 0, maxDepth = 3, strict = false) => {
+    if (!fs.existsSync(rootDir)) return;
+    if (currentDepth > maxDepth) return;
+    try {
+      const folders = fs.readdirSync(rootDir);
+      for (const folder of folders) {
+        if (blocklist.some((b) => folder.toLowerCase().includes(b))) continue;
+        const gamePath = path.join(rootDir, folder);
+        try {
+          const stats = fs.statSync(gamePath);
+          if (!stats.isDirectory()) continue;
+          const hasSigs = hasGameSignatures(gamePath);
+          const files = fs.readdirSync(gamePath);
+          const exes = files.filter((f) => f.toLowerCase().endsWith(".exe"));
+          const validExes = exes.filter((e) => !blocklist.some((b) => e.toLowerCase().includes(b)));
+          let isGame = false;
+          let bestExe = "";
+          if (hasSigs) {
+            isGame = true;
+          } else if (validExes.length > 0) {
+            const matchingExe = validExes.find((e) => e.toLowerCase().includes(folder.toLowerCase()));
+            if (matchingExe) {
+              bestExe = matchingExe;
+              isGame = true;
+            } else if (!strict) {
+              const sortedExes = validExes.sort((a, b) => {
+                try {
+                  return fs.statSync(path.join(gamePath, b)).size - fs.statSync(path.join(gamePath, a)).size;
+                } catch {
+                  return 0;
+                }
+              });
+              const largestExe = sortedExes[0];
+              const largestSize = fs.statSync(path.join(gamePath, largestExe)).size;
+              if (largestSize > 20 * 1024 * 1024) {
+                bestExe = largestExe;
+                isGame = true;
+              }
+            }
+          }
+          if (isGame) {
+            if (!bestExe && validExes.length > 0) {
+              bestExe = validExes.find((e) => e.toLowerCase().includes(folder.toLowerCase())) || validExes[0];
+            }
+            if (bestExe) {
+              foundGames.push({ name: folder, path: path.join(gamePath, bestExe) });
+              continue;
+            }
+          }
+          scanManualDir(gamePath, currentDepth + 1, maxDepth, strict);
+        } catch {
+        }
+      }
+    } catch {
+    }
+  };
+  if (customPath) {
+    console.log(`Scanning custom path: ${customPath}`);
+    scanManualDir(customPath, 0, 5, false);
+    const uniqueGames2 = foundGames.filter(
+      (game, index, self) => index === self.findIndex((t) => t.path === game.path)
+    );
+    const finalGames2 = [];
+    const names2 = /* @__PURE__ */ new Set();
+    for (const game of uniqueGames2) {
+      if (!names2.has(game.name)) {
+        names2.add(game.name);
+        finalGames2.push(game);
+      }
+    }
+    console.log(`Custom scan complete. Found ${finalGames2.length} games.`);
+    return finalGames2;
+  }
+  const steamPaths = [
+    "C:\\Program Files (x86)\\Steam",
+    "C:\\Program Files\\Steam"
+  ];
+  for (const drive of drives) {
+    steamPaths.push(`${drive}\\SteamLibrary`);
+    steamPaths.push(`${drive}\\Steam`);
+  }
+  const potentialSteamRoots = [
+    "C:\\Program Files (x86)\\Steam",
+    "C:\\Program Files\\Steam",
+    ...drives.map((d) => `${d}\\Steam`)
+  ];
+  for (const root of potentialSteamRoots) {
+    const vdfPath = path.join(root, "steamapps", "libraryfolders.vdf");
+    if (fs.existsSync(vdfPath)) {
+      try {
+        const content = fs.readFileSync(vdfPath, "utf-8");
+        const pathMatches = content.match(/"path"\s+"([^"]+)"/g);
+        if (pathMatches) {
+          pathMatches.forEach((match) => {
+            const libPath = match.split('"')[3].replace(/\\\\/g, "\\");
+            if (!steamPaths.includes(libPath)) {
+              steamPaths.push(libPath);
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing libraryfolders.vdf:", e);
+      }
+    }
+  }
+  for (const steamPath of steamPaths) {
+    const steamAppsPath = path.join(steamPath, "steamapps");
+    if (fs.existsSync(steamAppsPath)) {
+      try {
+        const files = fs.readdirSync(steamAppsPath);
+        for (const file of files) {
+          if (file.startsWith("appmanifest_") && file.endsWith(".acf")) {
+            try {
+              const content = fs.readFileSync(path.join(steamAppsPath, file), "utf-8");
+              const gameData = parseAcf(content);
+              if (gameData) {
+                const gamePath = path.join(steamAppsPath, "common", gameData.installDir);
+                if (fs.existsSync(gamePath)) {
+                  try {
+                    const gameFiles = fs.readdirSync(gamePath);
+                    const exes = gameFiles.filter((f) => f.toLowerCase().endsWith(".exe"));
+                    let bestExe = "";
+                    bestExe = exes.find((e) => e.toLowerCase().includes(gameData.installDir.toLowerCase())) || "";
+                    if (!bestExe) bestExe = exes.find((e) => ["launcher.exe", "game.exe", "start.exe"].includes(e.toLowerCase())) || "";
+                    if (!bestExe && exes.length > 0) {
+                      const exeSizes = exes.map((e) => {
+                        try {
+                          return { name: e, size: fs.statSync(path.join(gamePath, e)).size };
+                        } catch {
+                          return { name: e, size: 0 };
+                        }
+                      });
+                      exeSizes.sort((a, b) => b.size - a.size);
+                      bestExe = exeSizes[0].name;
+                    }
+                    if (bestExe) {
+                      foundGames.push({
+                        name: gameData.name,
+                        path: path.join(gamePath, bestExe),
+                        steamAppId: gameData.appId
+                      });
+                    }
+                  } catch (e) {
+                  }
+                }
+              }
+            } catch (e) {
+            }
+          }
+        }
+      } catch (e) {
+      }
+    }
+  }
+  const commonGameRoots = [
+    "C:\\Games",
+    "C:\\Program Files\\Epic Games",
+    "C:\\Program Files (x86)\\Epic Games",
+    "C:\\Program Files\\GOG Galaxy\\Games",
+    "C:\\GOG Galaxy\\Games",
+    "C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games",
+    "C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher\\games",
+    "C:\\XboxGames"
+  ];
+  for (const drive of drives) {
+    if (drive === "C:") continue;
+    commonGameRoots.push(`${drive}\\Games`);
+    commonGameRoots.push(`${drive}\\Epic Games`);
+    commonGameRoots.push(`${drive}\\Program Files\\Epic Games`);
+    commonGameRoots.push(`${drive}\\GOG Galaxy\\Games`);
+  }
+  for (const root of commonGameRoots) {
+    scanManualDir(root, 0, 3, true);
+  }
+  const uniqueGames = foundGames.filter(
+    (game, index, self) => index === self.findIndex((t) => t.path === game.path)
+  );
+  const finalGames = [];
+  const names = /* @__PURE__ */ new Set();
+  for (const game of uniqueGames) {
+    if (!names.has(game.name)) {
+      names.add(game.name);
+      finalGames.push(game);
+    }
+  }
+  console.log(`Scan complete. Found ${finalGames.length} games.`);
+  return finalGames;
+});
+electron.ipcMain.handle("get-game-screenshots", async (_, gameName) => {
+  try {
+    const screenshotsDir = path.join(electron.app.getPath("userData"), "screenshots", gameName);
+    if (!fs.existsSync(screenshotsDir)) return [];
+    const files = fs.readdirSync(screenshotsDir);
+    return files.filter((file) => file.endsWith(".png")).map((file) => `media://${gameName}/${file}`);
+  } catch (error) {
+    console.error("Failed to get screenshots:", error);
+    return [];
+  }
+});
+electron.ipcMain.handle("open-screenshots-folder", async (_, gameName) => {
+  const screenshotsDir = path.join(electron.app.getPath("userData"), "screenshots", gameName);
+  if (!fs.existsSync(screenshotsDir)) {
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+  }
+  await electron.shell.openPath(screenshotsDir);
+});
+electron.protocol.registerSchemesAsPrivileged([
+  { scheme: "media", privileges: { secure: true, standard: true, supportFetchAPI: true, corsEnabled: true } }
+]);
+electron.app.whenReady().then(() => {
+  electron.protocol.registerFileProtocol("media", (request, callback) => {
+    const url = request.url.replace("media://", "");
+    try {
+      const decodedUrl = decodeURIComponent(url);
+      if (decodedUrl.includes("..")) {
+        callback({ path: "" });
+        return;
+      }
+      const filePath = path.join(electron.app.getPath("userData"), "screenshots", decodedUrl);
+      callback({ path: filePath });
+    } catch (error) {
+      console.error("Failed to handle media protocol:", error);
+      callback({ path: "" });
+    }
+  });
+  createWindow();
+  startGlobalMonitoring();
+});
+const logFile = path.join(process.cwd(), "debug_log.txt");
+const log = (msg) => {
+  try {
+    fs.appendFileSync(logFile, `[${(/* @__PURE__ */ new Date()).toISOString()}] ${msg}
+`);
+  } catch (e) {
+    console.error("Failed to write to log file:", e);
+  }
+};
+const takeScreenshotNew = async (gameName, executablePath) => {
+  log(`Attempting to take screenshot for ${gameName} (Exe: ${executablePath})...`);
+  try {
+    const primaryDisplay = electron.screen.getPrimaryDisplay();
+    const sources = await electron.desktopCapturer.getSources({
+      types: ["window", "screen"],
+      thumbnailSize: primaryDisplay.size,
+      // Request full resolution
+      fetchWindowIcons: false
+    });
+    let targetSource = null;
+    const exeName = executablePath ? path.basename(executablePath, path.extname(executablePath)).toLowerCase() : "";
+    if (!targetSource) {
+      targetSource = sources.find((s) => s.name.toLowerCase() === gameName.toLowerCase());
+      if (targetSource) log(`Found window matching game title: ${targetSource.name}`);
+    }
+    if (!targetSource && exeName) {
+      targetSource = sources.find((s) => s.name.toLowerCase().includes(exeName));
+      if (targetSource) log(`Found window matching executable name: ${targetSource.name}`);
+    }
+    if (!targetSource) {
+      targetSource = sources.find((s) => s.name.toLowerCase().includes(gameName.toLowerCase()));
+      if (targetSource) log(`Found window fuzzy matching game title: ${targetSource.name}`);
+    }
+    if (!targetSource) {
+      log("No matching window found. Falling back to primary display.");
+      targetSource = sources.find((s) => s.display_id === primaryDisplay.id.toString()) || sources.find((s) => s.name === "Entire Screen") || sources[0];
+    }
+    if (targetSource) {
+      const image = targetSource.thumbnail;
+      const screenshotsDir = path.join(electron.app.getPath("userData"), "screenshots", gameName);
+      if (!fs.existsSync(screenshotsDir)) {
+        fs.mkdirSync(screenshotsDir, { recursive: true });
+      }
+      const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+      const filename = `screenshot-${timestamp}.png`;
+      const filePath = path.join(screenshotsDir, filename);
+      fs.writeFileSync(filePath, image.toPNG());
+      log(`Screenshot saved to: ${filePath}`);
+      win == null ? void 0 : win.webContents.send("screenshot-captured", { path: filePath, gameName });
+    } else {
+      log("No source found for screenshot.");
+    }
+  } catch (error) {
+    log(`Failed to take screenshot: ${error}`);
+    console.error("Failed to take screenshot:", error);
+  }
+};
+const registerScreenshotShortcut = (gameName, executablePath) => {
+  log(`Attempting to register screenshot shortcut for ${gameName}`);
+  const shortcuts = ["F12", "CommandOrControl+F12", "F9"];
+  let registered = false;
+  for (const key of shortcuts) {
+    try {
+      if (electron.globalShortcut.isRegistered(key)) {
+        log(`${key} is already registered. Unregistering first...`);
+        electron.globalShortcut.unregister(key);
+      }
+      const ret = electron.globalShortcut.register(key, () => {
+        log(`${key} pressed - Taking screenshot...`);
+        takeScreenshotNew(gameName, executablePath);
+      });
+      if (ret) {
+        log(`Screenshot shortcut (${key}) registered successfully.`);
+        win == null ? void 0 : win.webContents.send("shortcut-registered", key);
+        registered = true;
+        break;
+      } else {
+        log(`Failed to register ${key}.`);
+      }
+    } catch (err) {
+      log(`Error registering ${key}: ${err}`);
+    }
+  }
+  if (!registered) {
+    log("All shortcut registration attempts failed.");
+    win == null ? void 0 : win.webContents.send("shortcut-registration-failed");
+  }
+};
+const unregisterScreenshotShortcut = () => {
+  const shortcuts = ["F12", "CommandOrControl+F12", "F9"];
+  shortcuts.forEach((key) => {
+    if (electron.globalShortcut.isRegistered(key)) {
+      electron.globalShortcut.unregister(key);
+      log(`Screenshot shortcut (${key}) unregistered`);
+    }
+  });
+};
+let globalMonitorInterval = null;
+const startGlobalMonitoring = () => {
+  if (globalMonitorInterval) return;
+  console.log("Starting global game monitoring...");
+  log("Starting global game monitoring...");
+  const runningGames = /* @__PURE__ */ new Set();
+  let activeGameName = null;
+  globalMonitorInterval = setInterval(async () => {
+    const gamesData = store.get("games");
+    if (!gamesData || !Array.isArray(gamesData) || gamesData.length === 0) {
+      return;
+    }
+    node_child_process.exec("tasklist /FO CSV /NH", (err, stdout) => {
+      if (err) {
+        log(`Tasklist error: ${err.message}`);
+        return;
+      }
+      const processList = stdout.toLowerCase();
+      const currentDetectedPaths = /* @__PURE__ */ new Set();
+      for (const game of gamesData) {
+        if (game.executablePath) {
+          const exeName = path.basename(game.executablePath).toLowerCase();
+          const fullPath = game.executablePath.toLowerCase();
+          if (processList.includes(`"${exeName}"`)) {
+            currentDetectedPaths.add(fullPath);
+            if (!runningGames.has(fullPath)) {
+              log(`MATCH FOUND! ${exeName} started.`);
+              runningGames.add(fullPath);
+              win == null ? void 0 : win.webContents.send("game-detected", game);
+              activeGameName = game.title;
+              registerScreenshotShortcut(game.title, game.executablePath);
+            }
+          }
+        }
+      }
+      for (const runningPath of runningGames) {
+        if (!currentDetectedPaths.has(runningPath)) {
+          log(`Game exited: ${path.basename(runningPath)}`);
+          runningGames.delete(runningPath);
+          const game = gamesData.find((g) => {
+            var _a;
+            return ((_a = g.executablePath) == null ? void 0 : _a.toLowerCase()) === runningPath;
+          });
+          if (game) {
+            win == null ? void 0 : win.webContents.send("game-exited", game);
+            if (activeGameName === game.title) {
+              unregisterScreenshotShortcut();
+              activeGameName = null;
+              if (runningGames.size > 0) {
+                const nextGamePath = Array.from(runningGames)[0];
+                const nextGame = gamesData.find((g) => {
+                  var _a;
+                  return ((_a = g.executablePath) == null ? void 0 : _a.toLowerCase()) === nextGamePath;
+                });
+                if (nextGame) {
+                  activeGameName = nextGame.title;
+                  registerScreenshotShortcut(nextGame.title, nextGame.executablePath);
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+  }, 5e3);
+};
+function createWindow() {
+  const preloadPath = path.join(__dirname, "preload.js");
+  console.log("Preload path:", preloadPath);
+  win = new electron.BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 600,
+    icon: path.join(process.env.VITE_PUBLIC || path.join(__dirname, "../src/public"), "VAULTED.ico"),
+    webPreferences: {
+      preload: preloadPath,
+      nodeIntegration: true,
+      contextIsolation: true
+    },
+    frame: false,
+    // Custom title bar
+    titleBarStyle: "hidden",
+    title: "VAULTED Game Launcher",
+    backgroundColor: "#000000"
+  });
+  win.webContents.on("before-input-event", (event, input) => {
+    if (input.control && input.shift && input.key.toLowerCase() === "i") {
+      event.preventDefault();
+      console.log("Blocked DevTools shortcut");
+    }
+    if (input.key === "F12") {
+      event.preventDefault();
+      console.log("Blocked F12 shortcut");
+    }
+  });
+  win.webContents.on("did-finish-load", () => {
+    win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+    if (electron.app.isPackaged) {
+      const { autoUpdater } = require("electron-updater");
+      autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.on("update-available", () => {
+        win == null ? void 0 : win.webContents.send("update-available");
+      });
+      autoUpdater.on("update-downloaded", () => {
+        win == null ? void 0 : win.webContents.send("update-downloaded");
+      });
+    }
+  });
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
+  }
+}
+electron.app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    electron.app.quit();
+    win = null;
+  }
+});
+electron.app.on("activate", () => {
+  if (electron.BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});

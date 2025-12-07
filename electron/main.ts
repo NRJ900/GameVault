@@ -281,13 +281,86 @@ ipcMain.handle('stop-game', async (_, executablePath: string) => {
     });
 });
 
+// Helper to check registry for install path
+const checkRegistryForPath = (keyPath: string, valueName: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+        exec(`reg query "${keyPath}" /v "${valueName}"`, (err, stdout) => {
+            if (err) {
+                resolve(null);
+                return;
+            }
+            // Output format:
+            // HKEY_...
+            //     ValueName    REG_SZ    C:\Path\To\File
+            const match = stdout.match(/REG_SZ\s+(.+)/);
+            if (match && match[1]) {
+                resolve(match[1].trim());
+            } else {
+                resolve(null);
+            }
+        });
+    });
+};
+
+ipcMain.handle('check-app-installed', async (_, appId: 'steam' | 'epic' | 'gog') => {
+    const commonPaths: Record<string, string[]> = {
+        steam: [
+            'C:\\Program Files (x86)\\Steam\\steam.exe',
+            'C:\\Program Files\\Steam\\steam.exe'
+        ],
+        epic: [
+            'C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe',
+            'C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe',
+            'C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe',
+            'C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe'
+        ],
+        gog: [
+            'C:\\Program Files (x86)\\GOG Galaxy\\GalaxyClient.exe',
+            'C:\\Program Files\\GOG Galaxy\\GalaxyClient.exe'
+        ]
+    };
+
+    // 1. Check common paths
+    const pathsToCheck = commonPaths[appId] || [];
+    for (const p of pathsToCheck) {
+        if (fs.existsSync(p)) {
+            return true;
+        }
+    }
+
+    // 2. Check Registry as fallback
+    try {
+        if (appId === 'steam') {
+            const path = await checkRegistryForPath('HKCU\\Software\\Valve\\Steam', 'SteamExe');
+            if (path && fs.existsSync(path)) return true;
+        } else if (appId === 'epic') {
+            // Epic doesn't always store the EXE path directly, but usually "AppDataPath" or similar in:
+            // HKLM\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher
+            // Or HKLM\SOFTWARE\Epic Games\EpicGamesLauncher
+            let path = await checkRegistryForPath('HKLM\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher', 'AppDataPath');
+            if (path) {
+                // AppDataPath usually points to the Data folder, not the exe. 
+                // But if the key exists, it's likely installed.
+                return true;
+            }
+        } else if (appId === 'gog') {
+            const path = await checkRegistryForPath('HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient', 'clientExecutable');
+            if (path && fs.existsSync(path)) return true;
+        }
+    } catch (e) {
+        console.error(`Registry check failed for ${appId}:`, e);
+    }
+
+    return false;
+});
+
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 let win: BrowserWindow | null = null
 
-ipcMain.handle('scan-games', async () => {
-    console.log('Starting smart game scan...')
+ipcMain.handle('scan-games', async (_, customPath?: string) => {
+    console.log('Starting smart game scan...', customPath ? `Custom path: ${customPath}` : 'Full scan');
     const foundGames: { name: string, path: string, steamAppId?: string }[] = []
 
     // --- Helper: Get all mounted drives ---
@@ -339,6 +412,99 @@ ipcMain.handle('scan-games', async () => {
         }
         return null;
     };
+
+    // --- Strategy 2: Manual Scan (Recursive) ---
+    const scanManualDir = (rootDir: string, currentDepth: number = 0, maxDepth: number = 3, strict: boolean = false) => {
+        if (!fs.existsSync(rootDir)) return;
+        if (currentDepth > maxDepth) return;
+
+        try {
+            const folders = fs.readdirSync(rootDir);
+            for (const folder of folders) {
+                if (blocklist.some(b => folder.toLowerCase().includes(b))) continue;
+                const gamePath = path.join(rootDir, folder);
+
+                try {
+                    const stats = fs.statSync(gamePath);
+                    if (!stats.isDirectory()) continue;
+
+                    // Check if this folder IS a game
+                    const hasSigs = hasGameSignatures(gamePath);
+                    const files = fs.readdirSync(gamePath);
+                    const exes = files.filter(f => f.toLowerCase().endsWith('.exe'));
+                    const validExes = exes.filter(e => !blocklist.some(b => e.toLowerCase().includes(b)));
+
+                    let isGame = false;
+                    let bestExe = '';
+
+                    if (hasSigs) {
+                        isGame = true;
+                    } else if (validExes.length > 0) {
+                        // Heuristic: If it has a large exe or an exe matching the folder name
+                        const matchingExe = validExes.find(e => e.toLowerCase().includes(folder.toLowerCase()));
+                        if (matchingExe) {
+                            bestExe = matchingExe;
+                            isGame = true;
+                        } else if (!strict) {
+                            // Find largest exe
+                            const sortedExes = validExes.sort((a, b) => {
+                                try {
+                                    return fs.statSync(path.join(gamePath, b)).size - fs.statSync(path.join(gamePath, a)).size;
+                                } catch { return 0; }
+                            });
+                            const largestExe = sortedExes[0];
+                            const largestSize = fs.statSync(path.join(gamePath, largestExe)).size;
+
+                            // If exe is > 20MB, likely a game
+                            if (largestSize > 20 * 1024 * 1024) {
+                                bestExe = largestExe;
+                                isGame = true;
+                            }
+                        }
+                    }
+
+                    if (isGame) {
+                        if (!bestExe && validExes.length > 0) {
+                            bestExe = validExes.find(e => e.toLowerCase().includes(folder.toLowerCase())) || validExes[0];
+                        }
+
+                        if (bestExe) {
+                            foundGames.push({ name: folder, path: path.join(gamePath, bestExe) });
+                            // STOP recursing down this branch if we found a game
+                            continue;
+                        }
+                    }
+
+                    // If not a game (or we want to be aggressive), recurse
+                    // But if we found a game, we `continue`d above, so we only reach here if NOT a game
+                    scanManualDir(gamePath, currentDepth + 1, maxDepth, strict);
+
+                } catch { }
+            }
+        } catch { }
+    };
+
+    // If custom path is provided, ONLY scan that path using manual scan strategy
+    if (customPath) {
+        console.log(`Scanning custom path: ${customPath}`);
+        // Use deeper recursion (depth 5) for custom paths to ensure we find nested games
+        scanManualDir(customPath, 0, 5, false);
+
+        // Deduplicate and return immediately
+        const uniqueGames = foundGames.filter((game, index, self) =>
+            index === self.findIndex((t) => (t.path === game.path))
+        )
+        const finalGames: { name: string, path: string, steamAppId?: string }[] = [];
+        const names = new Set();
+        for (const game of uniqueGames) {
+            if (!names.has(game.name)) {
+                names.add(game.name);
+                finalGames.push(game);
+            }
+        }
+        console.log(`Custom scan complete. Found ${finalGames.length} games.`);
+        return finalGames;
+    }
 
     // --- Strategy 1: Steam Manifest Scanning ---
     const steamPaths = [
@@ -421,45 +587,15 @@ ipcMain.handle('scan-games', async () => {
         }
     }
 
-    // --- Strategy 2: Manual Scan ---
-    const scanManualDir = (rootDir: string) => {
-        if (!fs.existsSync(rootDir)) return;
-        try {
-            const folders = fs.readdirSync(rootDir);
-            for (const folder of folders) {
-                if (blocklist.some(b => folder.toLowerCase().includes(b))) continue;
-                const gamePath = path.join(rootDir, folder);
-                try {
-                    if (fs.statSync(gamePath).isDirectory()) {
-                        const isProgramFiles = rootDir.toLowerCase().includes('program files');
-                        const hasSigs = hasGameSignatures(gamePath);
-                        if (isProgramFiles && !hasSigs) continue;
-                        if (hasSigs || !isProgramFiles) {
-                            const files = fs.readdirSync(gamePath);
-                            const exes = files.filter(f => f.toLowerCase().endsWith('.exe'));
-                            const validExes = exes.filter(e => !blocklist.some(b => e.toLowerCase().includes(b)));
-                            if (validExes.length > 0) {
-                                let bestExe = validExes.find(e => e.toLowerCase().includes(folder.toLowerCase()));
-                                if (!bestExe) bestExe = validExes.sort((a, b) => fs.statSync(path.join(gamePath, b)).size - fs.statSync(path.join(gamePath, a)).size)[0];
-                                if (bestExe) {
-                                    const exeSize = fs.statSync(path.join(gamePath, bestExe)).size;
-                                    if (!hasSigs && exeSize < 20 * 1024 * 1024) continue;
-                                    foundGames.push({ name: folder, path: path.join(gamePath, bestExe) });
-                                }
-                            }
-                        }
-                    }
-                } catch { }
-            }
-        } catch { }
-    };
-
     const commonGameRoots = [
         'C:\\Games',
         'C:\\Program Files\\Epic Games',
+        'C:\\Program Files (x86)\\Epic Games',
         'C:\\Program Files\\GOG Galaxy\\Games',
-        'C:\\Program Files (x86)',
-        'C:\\Program Files'
+        'C:\\GOG Galaxy\\Games',
+        'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games',
+        'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher\\games',
+        'C:\\XboxGames',
     ];
     for (const drive of drives) {
         if (drive === 'C:') continue;
@@ -470,10 +606,13 @@ ipcMain.handle('scan-games', async () => {
     }
 
     for (const root of commonGameRoots) {
-        scanManualDir(root);
+        scanManualDir(root, 0, 3, true);
     }
 
-    // --- Strategy 3: Registry Scan ---
+    // --- Strategy 3: Registry Scan (DISABLED for general scan to avoid non-game apps) ---
+    // Only scan registry if explicitly requested or if we find a way to filter better.
+    // For now, we rely on standard paths and manual scans.
+    /*
     const scanRegistry = () => {
         return new Promise<void>((resolve) => {
             exec('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall" /s', (err, stdout) => {
@@ -510,6 +649,7 @@ ipcMain.handle('scan-games', async () => {
     }
 
     await scanRegistry();
+    */
 
     // Deduplicate
     const uniqueGames = foundGames.filter((game, index, self) =>
@@ -527,6 +667,63 @@ ipcMain.handle('scan-games', async () => {
     console.log(`Scan complete. Found ${finalGames.length} games.`)
     return finalGames
 })
+
+ipcMain.handle('get-game-screenshots', async (_, gameName: string) => {
+    try {
+        const screenshotsDir = path.join(app.getPath('userData'), 'screenshots', gameName);
+        if (!fs.existsSync(screenshotsDir)) return [];
+
+        const files = fs.readdirSync(screenshotsDir);
+        return files
+            .filter(file => file.endsWith('.png'))
+            .map(file => `media://${gameName}/${file}`);
+    } catch (error) {
+        console.error('Failed to get screenshots:', error);
+        return [];
+    }
+});
+
+ipcMain.handle('open-screenshots-folder', async (_, gameName: string) => {
+    const screenshotsDir = path.join(app.getPath('userData'), 'screenshots', gameName);
+    if (!fs.existsSync(screenshotsDir)) {
+        fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
+    await shell.openPath(screenshotsDir);
+});
+
+// --- Protocol Registration ---
+import { protocol } from 'electron';
+
+protocol.registerSchemesAsPrivileged([
+    { scheme: 'media', privileges: { secure: true, standard: true, supportFetchAPI: true, corsEnabled: true } }
+]);
+
+app.whenReady().then(() => {
+    protocol.registerFileProtocol('media', (request, callback) => {
+        const url = request.url.replace('media://', '');
+        try {
+            const decodedUrl = decodeURIComponent(url);
+            // Expected format: media://gameName/filename.png
+            // But we need to map it to userData/screenshots/gameName/filename.png
+            // The URL comes as "gameName/filename.png"
+
+            // Security check: prevent directory traversal
+            if (decodedUrl.includes('..')) {
+                callback({ path: '' }); // Block traversal
+                return;
+            }
+
+            const filePath = path.join(app.getPath('userData'), 'screenshots', decodedUrl);
+            callback({ path: filePath });
+        } catch (error) {
+            console.error('Failed to handle media protocol:', error);
+            callback({ path: '' });
+        }
+    });
+
+    createWindow();
+    startGlobalMonitoring();
+});
 
 // --- Logging Helper ---
 const logFile = path.join(process.cwd(), 'debug_log.txt');
@@ -792,7 +989,7 @@ function createWindow() {
         height: 800,
         minWidth: 1024,
         minHeight: 600,
-        icon: path.join(process.env.VITE_PUBLIC || '', 'electron-vite.svg'),
+        icon: path.join(process.env.VITE_PUBLIC || path.join(__dirname, '../src/public'), 'VAULTED.ico'),
         webPreferences: {
             preload: preloadPath,
             nodeIntegration: true,
@@ -800,12 +997,40 @@ function createWindow() {
         },
         frame: false, // Custom title bar
         titleBarStyle: 'hidden',
+        title: 'VAULTED Game Launcher',
         backgroundColor: '#000000',
+    })
+
+    // Block Ctrl+Shift+I (DevTools)
+    win.webContents.on('before-input-event', (event, input) => {
+        if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+            event.preventDefault()
+            console.log('Blocked DevTools shortcut')
+        }
+        // Also block F12 just in case
+        if (input.key === 'F12') {
+            event.preventDefault()
+            console.log('Blocked F12 shortcut')
+        }
     })
 
     // Test active push message to Renderer-process.
     win.webContents.on('did-finish-load', () => {
         win?.webContents.send('main-process-message', (new Date).toLocaleString())
+
+        // Auto-Update Check
+        if (app.isPackaged) {
+            const { autoUpdater } = require('electron-updater');
+            autoUpdater.checkForUpdatesAndNotify();
+
+            autoUpdater.on('update-available', () => {
+                win?.webContents.send('update-available');
+            });
+
+            autoUpdater.on('update-downloaded', () => {
+                win?.webContents.send('update-downloaded');
+            });
+        }
     })
 
     if (VITE_DEV_SERVER_URL) {
@@ -832,7 +1057,4 @@ app.on('activate', () => {
     }
 })
 
-app.whenReady().then(() => {
-    createWindow();
-    startGlobalMonitoring();
-})
+// app.whenReady moved up to protocol registration

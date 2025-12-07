@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect } from "react";
 import { Download, Loader2, CheckCircle } from "lucide-react";
+import logo from "../public/VAULTED.png";
 
 interface LaunchScreenProps {
   onComplete: () => void;
@@ -11,16 +12,16 @@ type LaunchState = "checking" | "downloading" | "starting" | "complete";
 const statusMessages = {
   checking: [
     "Syncing cloud saves...",
-    "Connecting to GameVault servers...",
+    "Connecting to VAULTED servers...",
     "Verifying library integrity...",
   ],
   downloading: [
-    "Downloading patch v2.4.1...",
+    "Downloading patch...",
     "Updating game metadata...",
     "Installing latest drivers...",
   ],
   starting: [
-    "Launching GameVault...",
+    "Launching VAULTED...",
     "Loading your collection...",
     "Preparing dashboard...",
   ],
@@ -30,20 +31,30 @@ export function LaunchScreen({ onComplete }: LaunchScreenProps) {
   const [launchState, setLaunchState] = useState<LaunchState>("checking");
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState(statusMessages.checking[0]);
+  const [updateSize, setUpdateSize] = useState(0);
+  const [updateVersion, setUpdateVersion] = useState("");
+
   useEffect(() => {
-    // Phase 1: Check for updates (1-2 seconds)
+    // Phase 1: Check for updates
     const checkTimer = setTimeout(() => {
-      // Simulate random chance of update
-      const updateAvailable = Math.random() > 0.5;
+      // Simulate random chance of update (30% chance)
+      const updateAvailable = Math.random() > 0.7;
 
       if (updateAvailable) {
+        const size = Math.floor(Math.random() * 150) + 20; // 20-170 MB
+        const major = Math.floor(Math.random() * 2) + 1;
+        const minor = Math.floor(Math.random() * 9);
+        const patch = Math.floor(Math.random() * 9);
+
+        setUpdateSize(size);
+        setUpdateVersion(`v${major}.${minor}.${patch}`);
         setLaunchState("downloading");
-        setMessage(statusMessages.downloading[0]);
+        setMessage(`Found update v${major}.${minor}.${patch}...`);
       } else {
         setLaunchState("starting");
         setMessage(statusMessages.starting[0]);
       }
-    }, 1500);
+    }, 2000);
 
     return () => clearTimeout(checkTimer);
   }, []);
@@ -61,10 +72,12 @@ export function LaunchScreen({ onComplete }: LaunchScreenProps) {
               setLaunchState("starting");
               setMessage(statusMessages.starting[0]);
               setProgress(0);
-            }, 300);
+            }, 500);
             return 100;
           }
-          return prev + 2;
+          // Variable speed based on "size"
+          const increment = Math.random() * 2 + 0.5;
+          return Math.min(prev + increment, 100);
         });
       }, 50);
     } else if (launchState === "starting") {
@@ -91,15 +104,19 @@ export function LaunchScreen({ onComplete }: LaunchScreenProps) {
   // Update messages periodically
   useEffect(() => {
     const messageInterval = setInterval(() => {
-      if (launchState !== "complete") {
+      if (launchState !== "complete" && launchState !== "downloading") {
         const messages = statusMessages[launchState as keyof typeof statusMessages];
         const randomMessage = messages[Math.floor(Math.random() * messages.length)];
         setMessage(randomMessage);
+      } else if (launchState === "downloading") {
+        // Keep the downloading message focused on the update
+        if (Math.random() > 0.7) setMessage(`Downloading patch ${updateVersion}...`);
+        else setMessage("Optimizing files...");
       }
     }, 2000);
 
     return () => clearInterval(messageInterval);
-  }, [launchState]);
+  }, [launchState, updateVersion]);
 
   return (
     <AnimatePresence>
@@ -156,21 +173,13 @@ export function LaunchScreen({ onComplete }: LaunchScreenProps) {
                   ],
                 }}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="w-32 h-32 rounded-3xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center"
+                className="w-32 h-32 rounded-3xl bg-gradient-to-br from-[var(--gaming-purple)] to-[var(--gaming-cyan)] flex items-center justify-center overflow-hidden p-4"
               >
-                <svg
-                  className="w-20 h-20 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"
-                  />
-                </svg>
+                <img
+                  src={logo}
+                  alt="VAULTED Logo"
+                  className="w-full h-full object-contain drop-shadow-lg"
+                />
               </motion.div>
 
               {/* Orbiting particles */}
@@ -208,7 +217,7 @@ export function LaunchScreen({ onComplete }: LaunchScreenProps) {
             className="mb-2"
           >
             <h1 className="text-4xl bg-gradient-to-r from-[var(--gaming-purple)] to-[var(--gaming-cyan)] bg-clip-text text-transparent">
-              GameVault
+              VAULTED
             </h1>
           </motion.div>
 
@@ -270,7 +279,7 @@ export function LaunchScreen({ onComplete }: LaunchScreenProps) {
                 <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                   <span>{progress}%</span>
                   {launchState === "downloading" && (
-                    <span>{((progress / 100) * 45).toFixed(1)} MB / 45 MB</span>
+                    <span>{((progress / 100) * updateSize).toFixed(1)} MB / {updateSize} MB</span>
                   )}
                 </div>
               </motion.div>

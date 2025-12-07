@@ -1,75 +1,120 @@
-const API_KEY = import.meta.env.VITE_RAWG_API_KEY;
-const BASE_URL = "https://api.rawg.io/api";
-
-export interface RawgGame {
+export interface RawgGameDetails {
     id: number;
     name: string;
-    background_image: string;
-    released: string;
-    metacritic: number;
-    rating: number;
-    slug: string;
-}
-
-export interface RawgGameDetails extends RawgGame {
     description_raw: string;
+    released: string;
+    background_image: string;
     website: string;
-    reddit_url: string;
-    metacritic_url: string;
+    rating: number;
+    metacritic: number;
+    genres: { name: string }[];
     developers: { name: string }[];
     publishers: { name: string }[];
-    genres: { name: string }[];
     platforms: {
         platform: { name: string };
-        requirements?: {
-            minimum?: string;
-            recommended?: string;
-        };
+        requirements?: { minimum?: string; recommended?: string };
     }[];
 }
 
-export const rawgService = {
-    async searchGames(query: string): Promise<RawgGame[]> {
-        if (!API_KEY) {
-            console.warn("RAWG API Key is missing");
-            return [];
-        }
-        try {
-            const response = await fetch(
-                `${BASE_URL}/games?key=${API_KEY}&search=${encodeURIComponent(query)}&page_size=5`
-            );
-            const data = await response.json();
-            return data.results;
-        } catch (error) {
-            console.error("Failed to search games:", error);
-            return [];
-        }
-    },
+class RawgService {
+    private apiKey: string = "";
+    private baseUrl = "https://api.rawg.io/api";
 
-    async getGameDetails(id: number): Promise<RawgGameDetails | null> {
-        if (!API_KEY) return null;
-        try {
-            const response = await fetch(`${BASE_URL}/games/${id}?key=${API_KEY}`);
-            return await response.json();
-        } catch (error) {
-            console.error("Failed to get game details:", error);
-            return null;
-        }
-    },
+    setApiKey(key: string) {
+        this.apiKey = key;
+    }
 
     async getGameDetailsByName(name: string): Promise<RawgGameDetails | null> {
-        if (!API_KEY) return null;
-        try {
-            // First search for the game to get the ID
-            const searchResults = await this.searchGames(name);
-            if (searchResults.length > 0) {
-                // Get details for the first result
-                return await this.getGameDetails(searchResults[0].id);
-            }
+        if (!this.apiKey) {
+            console.warn("RAWG API Key not set");
             return null;
+        }
+
+        try {
+            // First search for the game to get ID
+            const searchUrl = `${this.baseUrl}/games?key=${this.apiKey}&search=${encodeURIComponent(name)}&page_size=1`;
+            const searchResponse = await fetch(searchUrl);
+            const searchData = await searchResponse.json();
+
+            if (!searchData.results || searchData.results.length === 0) {
+                return null;
+            }
+
+            const gameId = searchData.results[0].id;
+
+            // Then fetch full details
+            const detailsUrl = `${this.baseUrl}/games/${gameId}?key=${this.apiKey}`;
+            const detailsResponse = await fetch(detailsUrl);
+            const detailsData = await detailsResponse.json();
+
+            return detailsData as RawgGameDetails;
         } catch (error) {
-            console.error("Failed to get game details by name:", error);
+            console.error("Error fetching RAWG details:", error);
             return null;
         }
     }
-};
+
+    async searchGames(query: string): Promise<{ id: number; name: string }[]> {
+        if (!this.apiKey) return [];
+        try {
+            const searchUrl = `${this.baseUrl}/games?key=${this.apiKey}&search=${encodeURIComponent(query)}&page_size=5`;
+            const response = await fetch(searchUrl);
+            const data = await response.json();
+            return data.results || [];
+        } catch (error) {
+            console.error("Error searching RAWG:", error);
+            return [];
+        }
+    }
+
+    async getGameDetails(id: string | number): Promise<RawgGameDetails | null> {
+        if (!this.apiKey) return null;
+        try {
+            const url = `${this.baseUrl}/games/${id}?key=${this.apiKey}`;
+            const response = await fetch(url);
+            return await response.json() as RawgGameDetails;
+        } catch (error) {
+            console.error("Error fetching RAWG details:", error);
+            return null;
+        }
+    }
+    async getSuggestedGames(id: string | number): Promise<RawgGameDetails[]> {
+        if (!this.apiKey) return [];
+        try {
+            const url = `${this.baseUrl}/games/${id}/suggested?key=${this.apiKey}&page_size=3`;
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.results || [];
+        } catch (error) {
+            console.error("Error fetching suggested games:", error);
+            return [];
+        }
+    }
+    async getGamesByGenre(genreSlug: string): Promise<RawgGameDetails[]> {
+        if (!this.apiKey) return [];
+        try {
+            const url = `${this.baseUrl}/games?key=${this.apiKey}&genres=${genreSlug}&ordering=-rating&page_size=5`;
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.results || [];
+        } catch (error) {
+            console.error("Error fetching games by genre:", error);
+            return [];
+        }
+    }
+
+    async getGameStores(gameId: number): Promise<{ url: string; store_id: number }[]> {
+        if (!this.apiKey) return [];
+        try {
+            const url = `${this.baseUrl}/games/${gameId}/stores?key=${this.apiKey}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.results || [];
+        } catch (error) {
+            console.error("Error fetching game stores:", error);
+            return [];
+        }
+    }
+}
+
+export const rawgService = new RawgService();

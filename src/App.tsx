@@ -8,9 +8,11 @@ import { Achievements } from "./components/Achievements";
 import { Favorites } from "./components/Favorites";
 import { MyStack } from "./components/MyStack";
 import { ContinuePlaying } from "./components/ContinuePlaying";
+import { RecentlyPlayed } from "./components/RecentlyPlayed";
 import { ThemeStore, availableThemes } from "./components/ThemeStore";
 import { GameDetails } from "./components/GameDetails";
 import { Messages, Notification } from "./components/Messages";
+import { DeveloperTools } from "./components/temp";
 import { MILESTONES } from "./data/milestones";
 
 
@@ -31,7 +33,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { toast } from "sonner";
 import { Toaster } from "./components/ui/sonner";
 import { useTheme } from "./components/theme-provider";
-import { rawgService } from "./services/rawgService";
+import { rawgService, RawgGameDetails } from "@/services/rawgService";
 
 import { Game, GameCollection, Theme } from "./types";
 
@@ -47,6 +49,14 @@ export default function App() {
   const [cloudEmail, setCloudEmail] = useState("");
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
+  const [gameNewsUpdates, setGameNewsUpdates] = useState(true);
+  const [achievementNotifications, setAchievementNotifications] = useState(true);
+  const [launchReminders, setLaunchReminders] = useState(false);
+  const [rawgApiKey, setRawgApiKey] = useState(import.meta.env.VITE_RAWG_API_KEY || "");
+
+  useEffect(() => {
+    rawgService.setApiKey(rawgApiKey);
+  }, [rawgApiKey]);
 
   useEffect(() => {
     const baseSize = 16;
@@ -54,13 +64,40 @@ export default function App() {
     document.documentElement.style.setProperty('--font-size', `${newSize}px`);
   }, [uiScale]);
 
-  const [activeView, setActiveView] = useState<"dashboard" | "continue-playing" | "settings" | "about" | "store" | "game-details" | "my-stack" | "achievements" | "favorites" | "messages">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "continue-playing" | "settings" | "about" | "store" | "game-details" | "my-stack" | "achievements" | "favorites" | "messages" | "recently-played">("dashboard");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [showAddGameDialog, setShowAddGameDialog] = useState(false);
   const [showScanWizard, setShowScanWizard] = useState(false);
   const [showLimitSettings, setShowLimitSettings] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
+
+  // Konami Code Listener
+  useEffect(() => {
+    const konamiCode = [
+      "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+      "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight",
+      "b", "a"
+    ];
+    let konamiIndex = 0;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === konamiCode[konamiIndex]) {
+        konamiIndex++;
+        if (konamiIndex === konamiCode.length) {
+          setShowDevTools(true);
+          toast.success("Developer Mode Activated! 🔧");
+          konamiIndex = 0;
+        }
+      } else {
+        konamiIndex = 0;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // --- Persistence Logic ---
   useEffect(() => {
@@ -88,6 +125,10 @@ export default function App() {
           if (savedSettings.uiScale) setUiScale(savedSettings.uiScale);
           if (savedSettings.dailyLimit) setDailyLimit(savedSettings.dailyLimit);
           if (savedSettings.dailyLimitEnabled !== undefined) setDailyLimitEnabled(savedSettings.dailyLimitEnabled);
+          if (savedSettings.gameNewsUpdates !== undefined) setGameNewsUpdates(savedSettings.gameNewsUpdates);
+          if (savedSettings.achievementNotifications !== undefined) setAchievementNotifications(savedSettings.achievementNotifications);
+          if (savedSettings.launchReminders !== undefined) setLaunchReminders(savedSettings.launchReminders);
+          if (savedSettings.rawgApiKey) setRawgApiKey(savedSettings.rawgApiKey);
         }
 
         const savedCollections = await window.ipcRenderer.loadData('collections');
@@ -197,8 +238,10 @@ export default function App() {
   // Daily limit states
   const [dailyLimit, setDailyLimit] = useState(8);
   const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
-  const [todayPlaytime] = useState(0); // Minutes
+  const [todayPlaytime, setTodayPlaytime] = useState(0); // Hours
+  const [dailyGamePlaytime, setDailyGamePlaytime] = useState<Record<string, number>>({}); // Game ID -> Minutes
   const [limitDialogShown, setLimitDialogShown] = useState(false);
+
 
   // New feature states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -212,6 +255,31 @@ export default function App() {
     position: { x: number; y: number };
     game: Game | null;
   }>({ isOpen: false, position: { x: 0, y: 0 }, game: null });
+
+  // Track playtime for "Today's Activity"
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (isPlaying && currentlyPlaying) {
+      interval = setInterval(() => {
+        // Increment total today playtime (in hours)
+        // 1 second = 1/3600 hours
+        setTodayPlaytime(prev => prev + (1 / 3600));
+
+        // Increment specific game playtime (in minutes)
+        setDailyGamePlaytime(prev => ({
+          ...prev,
+          [currentlyPlaying.id]: (prev[currentlyPlaying.id] || 0) + (1 / 60)
+        }));
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [isPlaying, currentlyPlaying]);
+
+  // Calculate most active game
+  const mostActiveGameId = Object.entries(dailyGamePlaytime).sort(([, a], [, b]) => b - a)[0]?.[0];
+  const mostActiveGame = games.find(g => g.id === mostActiveGameId)?.title || "None";
 
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelper, setShowShortcutsHelper] = useState(false);
@@ -262,6 +330,9 @@ export default function App() {
         const savedThemes = await window.ipcRenderer.loadData('ownedThemes');
         if (savedThemes) setOwnedThemes(savedThemes);
 
+        const savedFeatures = await window.ipcRenderer.loadData('unlockedFeatures');
+        if (savedFeatures) setUnlockedFeatures(savedFeatures);
+
         const savedSettings = await window.ipcRenderer.loadData('settings');
         if (savedSettings) {
           if (savedSettings.theme) setTheme(savedSettings.theme);
@@ -302,14 +373,34 @@ export default function App() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.ipcRenderer.saveData('points', points, true); // Encrypted
+      window.ipcRenderer.saveData('gamification', {
+        points,
+        ownedThemes,
+        unlockedFeatures
+      });
     }, 1000);
     return () => clearTimeout(timer);
-  }, [points]);
+  }, [points, ownedThemes, unlockedFeatures]);
 
+  // Window Focus Effect for Animation
   useEffect(() => {
-    window.ipcRenderer.saveData('ownedThemes', ownedThemes, true); // Encrypted
-  }, [ownedThemes]);
+    const handleFocus = () => document.body.classList.add('window-focused');
+    const handleBlur = () => document.body.classList.remove('window-focused');
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    // Initial check
+    if (document.hasFocus()) {
+      handleFocus();
+    }
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      document.body.classList.remove('window-focused');
+    };
+  }, []);
 
   useEffect(() => {
     window.ipcRenderer.saveData('collections', collections);
@@ -324,13 +415,17 @@ export default function App() {
       bgOpacity,
       uiScale,
       dailyLimit,
-      dailyLimitEnabled
+      dailyLimitEnabled,
+      gameNewsUpdates,
+      achievementNotifications,
+      launchReminders,
+      rawgApiKey
     };
     const timer = setTimeout(() => {
       window.ipcRenderer.saveData('settings', settings);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [theme, accentColor, bgImage, bgBlur, bgOpacity, uiScale, dailyLimit, dailyLimitEnabled]);
+  }, [theme, accentColor, bgImage, bgBlur, bgOpacity, uiScale, dailyLimit, dailyLimitEnabled, gameNewsUpdates, achievementNotifications, launchReminders]);
   // -------------------------
 
   // Keyboard shortcuts
@@ -414,9 +509,16 @@ export default function App() {
         root.style.setProperty("--gaming-accent", accentColor);
       }
 
+      if (customTheme.isAnimated) {
+        document.body.classList.add("theme-animated");
+      } else {
+        document.body.classList.remove("theme-animated");
+      }
+
       root.classList.add("dark");
       root.classList.remove("light");
     } else {
+      document.body.classList.remove("theme-animated");
       const keys = [
         "background", "foreground", "primary", "secondary", "muted", "border",
         "card", "popover", "input", "input-background", "sidebar",
@@ -444,6 +546,8 @@ export default function App() {
     setSelectedGameId(game.id);
     setActiveView("game-details");
   };
+
+
 
   const handleGameClick = async (game: Game) => {
     if (isPlaying) {
@@ -798,7 +902,7 @@ export default function App() {
       const name = game.title || game.executablePath.split('\\').pop()?.replace('.exe', '') || "Unknown Game";
 
       // Try to fetch metadata
-      let details = null;
+      let details: RawgGameDetails | null = null;
       try {
         const searchResults = await rawgService.searchGames(name);
         if (searchResults.length > 0) {
@@ -835,6 +939,95 @@ export default function App() {
     toast.success(`Imported ${newGames.length} games with details!`);
   };
 
+  const handleRefreshMetadata = async () => {
+    setIsLoading(true);
+    const toastId = toast.loading("Refreshing game metadata...");
+
+    try {
+      const updatedGamesPromises = games.map(async (game) => {
+        // Skip if we already have a custom cover (optional, but good for performance)
+        // For now, we'll refresh everything to ensure consistency
+
+        try {
+          // 1. Search for the game to get the ID
+          const searchResults = await rawgService.searchGames(game.title);
+          if (searchResults.length === 0) return game;
+
+          const gameId = searchResults[0].id;
+
+          // 2. Fetch full details
+          const details = await rawgService.getGameDetails(gameId);
+
+          if (!details) return game;
+
+          return {
+            ...game,
+            coverImage: details.background_image || game.coverImage,
+            description: details.description_raw || game.description,
+            genre: details.genres?.[0]?.name || game.genre,
+            releaseDate: details.released || game.releaseDate,
+            rating: details.metacritic || game.rating,
+            systemRequirements: details.platforms?.find((p) => p.platform.name === "PC")?.requirements || game.systemRequirements,
+          };
+        } catch (e) {
+          console.error(`Failed to refresh metadata for ${game.title}`, e);
+          return game;
+        }
+      });
+
+      const updatedGames = await Promise.all(updatedGamesPromises);
+      setGames(updatedGames);
+      toast.success("Metadata refreshed successfully!", { id: toastId });
+    } catch (error) {
+      console.error("Failed to refresh metadata:", error);
+      toast.error("Failed to refresh metadata", { id: toastId });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefreshGameMetadata = async (gameId: string) => {
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+
+    const toastId = toast.loading(`Refreshing metadata for ${game.title}...`);
+
+    try {
+      // 1. Search for the game to get the ID
+      const searchResults = await rawgService.searchGames(game.title);
+      if (searchResults.length === 0) {
+        toast.error("Game not found on RAWG", { id: toastId });
+        return;
+      }
+
+      const rawgId = searchResults[0].id;
+
+      // 2. Fetch full details
+      const details = await rawgService.getGameDetails(rawgId);
+
+      if (!details) {
+        toast.error("Failed to fetch details", { id: toastId });
+        return;
+      }
+
+      const updatedGame = {
+        ...game,
+        coverImage: details.background_image || game.coverImage,
+        description: details.description_raw || game.description,
+        genre: details.genres?.[0]?.name || game.genre,
+        releaseDate: details.released || game.releaseDate,
+        rating: details.metacritic || game.rating,
+        systemRequirements: details.platforms?.find((p) => p.platform.name === "PC")?.requirements || game.systemRequirements,
+      };
+
+      setGames(prev => prev.map(g => g.id === gameId ? updatedGame : g));
+      toast.success("Metadata updated!", { id: toastId });
+    } catch (error) {
+      console.error("Failed to refresh game metadata:", error);
+      toast.error("Failed to update metadata", { id: toastId });
+    }
+  };
+
   const handleDeleteGame = (gameId: string) => {
     setGames((prev) => prev.filter((g) => g.id !== gameId));
     if (selectedGame?.id === gameId) setSelectedGame(null);
@@ -868,7 +1061,8 @@ export default function App() {
         autoDetectGames,
         cloudEmail,
         cloudSyncEnabled,
-        autoBackup
+        autoBackup,
+        rawgApiKey
       };
       // Use the new save-backup IPC which opens a save dialog
       const success = await window.ipcRenderer.saveBackup(JSON.stringify(dataToSave, null, 2));
@@ -877,6 +1071,74 @@ export default function App() {
       }
     } catch (e) {
       toast.error("Backup failed");
+    }
+  };
+
+  const handleDefaultGameDirChange = async (newPath: string) => {
+    setDefaultGameDir(newPath);
+
+    if (autoDetectGames) {
+      const toastId = toast.loading(`Scanning ${newPath} for games...`);
+      try {
+        const foundGames = await window.ipcRenderer.scanGames(newPath);
+
+        // Filter out games that are already in the library
+        const newGames = foundGames.filter((scannedGame: any) =>
+          !games.some(existing =>
+            existing.executablePath?.toLowerCase() === scannedGame.path.toLowerCase()
+          )
+        );
+
+        if (newGames.length > 0) {
+          // Import the new games
+          const gamesToImport = newGames.map((g: any) => ({
+            title: g.name,
+            executablePath: g.path,
+            steamAppId: g.steamAppId
+          }));
+
+          await handleImportGames(gamesToImport);
+          toast.success(`Found and added ${newGames.length} new games!`, { id: toastId });
+        } else {
+          toast.info("No new games found in this directory.", { id: toastId });
+        }
+      } catch (error) {
+        console.error("Auto-scan failed:", error);
+        toast.error("Failed to scan directory", { id: toastId });
+      }
+    }
+  };
+
+  const handleRescanDefaultDir = async () => {
+    if (!defaultGameDir) return;
+
+    const toastId = toast.loading(`Scanning ${defaultGameDir} for games...`);
+    try {
+      const foundGames = await window.ipcRenderer.scanGames(defaultGameDir);
+
+      // Filter out games that are already in the library
+      const newGames = foundGames.filter((scannedGame: any) =>
+        !games.some(existing =>
+          existing.executablePath?.toLowerCase() === scannedGame.path.toLowerCase()
+        )
+      );
+
+      if (newGames.length > 0) {
+        // Import the new games
+        const gamesToImport = newGames.map((g: any) => ({
+          title: g.name,
+          executablePath: g.path,
+          steamAppId: g.steamAppId
+        }));
+
+        await handleImportGames(gamesToImport);
+        toast.success(`Found and added ${newGames.length} new games!`, { id: toastId });
+      } else {
+        toast.info("No new games found in this directory.", { id: toastId });
+      }
+    } catch (error) {
+      console.error("Manual scan failed:", error);
+      toast.error("Failed to scan directory", { id: toastId });
     }
   };
 
@@ -901,6 +1163,7 @@ export default function App() {
         if (data.cloudEmail) setCloudEmail(data.cloudEmail);
         if (data.cloudSyncEnabled !== undefined) setCloudSyncEnabled(data.cloudSyncEnabled);
         if (data.autoBackup !== undefined) setAutoBackup(data.autoBackup);
+        if (data.rawgApiKey) setRawgApiKey(data.rawgApiKey);
 
         toast.success("Backup restored successfully!");
       }
@@ -933,6 +1196,7 @@ export default function App() {
             dailyLimit={dailyLimit}
             dailyLimitEnabled={dailyLimitEnabled}
             todayPlaytime={todayPlaytime}
+            mostActiveGame={mostActiveGame}
             onConfigureLimit={() => setShowLimitSettings(true)}
           />
         );
@@ -943,6 +1207,16 @@ export default function App() {
             onBack={() => setActiveView("dashboard")}
             onGameClick={handleGameClick}
             onGameContextMenu={handleGameContextMenu}
+          />
+        );
+      case "recently-played":
+        return (
+          <RecentlyPlayed
+            games={games}
+            onGameClick={handleGameClick}
+            onGameContextMenu={handleGameContextMenu}
+            onGameTitleClick={handleGameTitleClick}
+            isLoading={isLoading}
           />
         );
       case "settings":
@@ -964,7 +1238,8 @@ export default function App() {
             onUiScaleChange={setUiScale}
             onOpenStore={() => setActiveView("store")}
             defaultGameDir={defaultGameDir}
-            onDefaultGameDirChange={setDefaultGameDir}
+            onDefaultGameDirChange={handleDefaultGameDirChange}
+            onRescanDefaultDir={handleRescanDefaultDir}
             autoDetectGames={autoDetectGames}
             onAutoDetectGamesChange={setAutoDetectGames}
             onScanLibrary={() => setShowScanWizard(true)}
@@ -976,6 +1251,15 @@ export default function App() {
             onAutoBackupChange={setAutoBackup}
             onBackup={handleBackupNow}
             onRestore={handleRestoreBackup}
+            gameNewsUpdates={gameNewsUpdates}
+            onGameNewsUpdatesChange={setGameNewsUpdates}
+            achievementNotifications={achievementNotifications}
+            onAchievementNotificationsChange={setAchievementNotifications}
+            launchReminders={launchReminders}
+            onLaunchRemindersChange={setLaunchReminders}
+            rawgApiKey={rawgApiKey}
+            onRawgApiKeyChange={setRawgApiKey}
+            onRefreshMetadata={handleRefreshMetadata}
           />
         );
       case "store":
@@ -987,6 +1271,8 @@ export default function App() {
             onPurchaseTheme={handlePurchaseTheme}
             onPurchaseFeature={handlePurchaseFeature}
             onBack={() => setActiveView("settings")}
+            currentTheme={theme}
+            onEquip={setTheme}
           />
         );
       case "game-details":
@@ -1065,10 +1351,23 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex select-none">
+    <div className="flex h-screen overflow-hidden text-foreground font-sans antialiased selection:bg-primary selection:text-primary-foreground relative">
+      {/* Background Image Layer (for custom backgrounds) */}
+      {bgImage && (
+        <div
+          className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-500"
+          style={{
+            backgroundImage: `url(${bgImage})`,
+            filter: `blur(${bgBlur}px)`,
+            opacity: 1 - bgOpacity
+          }}
+        />
+      )}
+
+      {/* Sidebar */}
       <SideNavPanel
         activeView={activeView}
-        onViewChange={handleViewChange}
+        onViewChange={(view) => setActiveView(view as any)}
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         recentGames={[...games]
@@ -1080,191 +1379,193 @@ export default function App() {
           .slice(0, 5)}
         onGameClick={handleGameClick}
         onGameContextMenu={handleGameContextMenu}
+        onRecentlyPlayedClick={() => setActiveView("recently-played")}
       />
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
-        {/* Background Image Layer */}
-        {bgImage && (
-          <div
-            className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-500"
-            style={{
-              backgroundImage: `url(${bgImage})`,
-              filter: `blur(${bgBlur}px)`,
-              opacity: 1 - bgOpacity
-            }}
-          />
-        )}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
+        <TopNavBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSettingsClick={() => setActiveView("settings")}
+          onStoreClick={() => setActiveView("store")}
+          points={points}
+          notifications={notifications}
+          onMessagesClick={() => setActiveView("messages")}
+          activeView={activeView}
+          onNavigate={(view) => setActiveView(view as any)}
+        />
 
-        {/* Content Layer */}
-        <div className="relative z-10 flex flex-col h-full">
-          <TopNavBar
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onSettingsClick={() => setActiveView("settings")}
-            onStoreClick={() => setActiveView("store")}
-            points={points}
-            notifications={notifications}
-            onMessagesClick={() => setActiveView("messages")}
-          />
-
-          <main className="flex-1 overflow-hidden relative">
-            {renderContent()}
-          </main>
-
-          {/* Overlays */}
-          {isPlaying && currentlyPlaying && (
-            <LivePlaytimeTracker
-              isPlaying={true}
-              currentGame={currentlyPlaying.title}
-              onStop={handleStopPlaying}
-            />
-          )}
-
-
-
-          {gameForSettings && (
-            <GameSettings
-              game={gameForSettings}
-              isOpen={!!gameForSettings}
-              onClose={() => setGameForSettings(null)}
-              onSave={(updatedGame) => {
-                setGames((prev) =>
-                  prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)),
-                );
-                setGameForSettings(null);
-                toast.success("Game settings saved");
-              }}
-              onDelete={handleDeleteGame}
-              onOpenLocation={handleOpenLocation}
-            />
-          )}
-
-          {showAddGameDialog && (
-            <AddGameDialog
-              isOpen={showAddGameDialog}
-              onClose={() => setShowAddGameDialog(false)}
-              onAddGame={(gameData) => handleAddGame({
-                ...gameData,
-                id: Date.now().toString(),
-                hoursPlayed: 0,
-                lastPlayed: "Never",
-                achievements: 0,
-                totalAchievements: 0,
-                isPinned: false,
-                isFavorite: false,
-                platform: gameData.platform || "PC",
-                genre: gameData.genre || "Unknown",
-                executablePath: gameData.executablePath || "",
-              })}
-            />
-          )}
-
-          {showScanWizard && (
-            <ScanWizard
-              isOpen={showScanWizard}
-              onClose={() => setShowScanWizard(false)}
-              onImportGames={handleImportGames}
-              existingGames={games}
-            />
-          )}
-
-          {showLimitSettings && (
-            <DailyLimitSettings
-              isOpen={showLimitSettings}
-              onClose={() => setShowLimitSettings(false)}
-              onSave={handleSaveDailyLimit}
-              currentLimit={dailyLimit}
-              isEnabled={dailyLimitEnabled}
-            />
-          )}
-
-          {showGameNotes && gameForNotes && (
-            <GameNotesPanel
-              gameTitle={gameForNotes.title}
-              onClose={() => setShowGameNotes(false)}
-            />
-          )}
-
-          {showModsManager && gameForMods && (
-            <ModsManager
-              gameTitle={gameForMods.title}
-              onClose={() => setShowModsManager(false)}
-            />
-          )}
-
-          {contextMenu.isOpen && contextMenu.game && (
-            <GameContextMenu
-              isOpen={contextMenu.isOpen}
-              position={contextMenu.position}
-              onClose={() => setContextMenu({ ...contextMenu, isOpen: false })}
-              onLaunch={() => {
-                if (contextMenu.game) handleGameClick(contextMenu.game);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onToggleFavorite={() => {
-                if (contextMenu.game) handleToggleFavorite(contextMenu.game.id);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onTogglePin={() => {
-                if (contextMenu.game) handleTogglePin(contextMenu.game.id);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onSettings={() => {
-                if (contextMenu.game) setGameForSettings(contextMenu.game);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onNotes={() => {
-                if (contextMenu.game) handleOpenNotes(contextMenu.game);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onMods={() => {
-                if (contextMenu.game) handleOpenMods(contextMenu.game);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onOpenFolder={() => {
-                if (contextMenu.game && contextMenu.game.executablePath) {
-                  // We want to open the folder containing the executable
-                  // Since we don't have a direct "dirname" function here easily without node path module in renderer (unless we polyfill),
-                  // we can just pass the executable path to the main process and let it handle opening the item in folder.
-                  // The 'openPath' IPC handler uses 'shell.showItemInFolder' which does exactly this.
-                  window.ipcRenderer.openPath(contextMenu.game.executablePath);
-                  toast.success("Opening game folder...");
-                } else {
-                  toast.error("Game path not configured");
-                }
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              onDelete={() => {
-                if (contextMenu.game) handleDeleteGame(contextMenu.game.id);
-                setContextMenu({ ...contextMenu, isOpen: false });
-              }}
-              isFavorite={contextMenu.game.isFavorite}
-              isPinned={contextMenu.game.isPinned}
-            />
-          )}
-
-          <CommandPalette
-            isOpen={showCommandPalette}
-            onClose={() => setShowCommandPalette(false)}
-            games={games}
-            onNavigate={handleViewChange}
-            onGameClick={(game) => {
-              handleGameClick(game);
-              setShowCommandPalette(false);
-            }}
-            onLaunchLast={handleLaunchLastPlayed}
-          />
-
-          <KeyboardShortcutsHelper
-            isOpen={showShortcutsHelper}
-            onClose={() => setShowShortcutsHelper(false)}
-          />
-
-          <ShortcutsButton onClick={() => setShowShortcutsHelper(true)} />
-
-          <Toaster />
-        </div>
+        <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
+          {renderContent()}
+        </main>
       </div>
+
+      {/* Overlays */}
+      {isPlaying && currentlyPlaying && (
+        <LivePlaytimeTracker
+          isPlaying={true}
+          currentGame={currentlyPlaying?.title || "Unknown Game"}
+          onStop={handleStopPlaying}
+        />
+      )}
+
+
+
+      {gameForSettings && (
+        <GameSettings
+          game={gameForSettings!}
+          isOpen={!!gameForSettings}
+          onClose={() => setGameForSettings(null)}
+          onSave={(updatedGame) => {
+            setGames((prev) =>
+              prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)),
+            );
+            setGameForSettings(null);
+            toast.success("Game settings saved");
+          }}
+          onDelete={handleDeleteGame}
+          onOpenLocation={handleOpenLocation}
+        />
+      )}
+
+      {showAddGameDialog && (
+        <AddGameDialog
+          isOpen={showAddGameDialog}
+          onClose={() => setShowAddGameDialog(false)}
+          onAddGame={(gameData) => handleAddGame({
+            ...gameData,
+            id: Date.now().toString(),
+            hoursPlayed: 0,
+            lastPlayed: "Never",
+            achievements: 0,
+            totalAchievements: 0,
+            isPinned: false,
+            isFavorite: false,
+            platform: gameData.platform || "PC",
+            genre: gameData.genre || "Unknown",
+            executablePath: gameData.executablePath || "",
+          })}
+        />
+      )}
+
+      {showScanWizard && (
+        <ScanWizard
+          isOpen={showScanWizard}
+          onClose={() => setShowScanWizard(false)}
+          onImportGames={handleImportGames}
+          existingGames={games}
+        />
+      )}
+
+      {showLimitSettings && (
+        <DailyLimitSettings
+          isOpen={showLimitSettings}
+          onClose={() => setShowLimitSettings(false)}
+          onSave={handleSaveDailyLimit}
+          currentLimit={dailyLimit}
+          isEnabled={dailyLimitEnabled}
+        />
+      )}
+
+      {showGameNotes && gameForNotes && (
+        <GameNotesPanel
+          gameTitle={gameForNotes?.title || "Unknown Game"}
+          onClose={() => setShowGameNotes(false)}
+        />
+      )}
+
+      {showModsManager && gameForMods && (
+        <ModsManager
+          gameTitle={gameForMods?.title || "Unknown Game"}
+          onClose={() => setShowModsManager(false)}
+        />
+      )}
+
+      {showDevTools && (
+        <DeveloperTools
+          isOpen={showDevTools}
+          onClose={() => setShowDevTools(false)}
+          setPoints={setPoints}
+          currentPoints={points}
+        />
+      )}
+
+      {contextMenu.isOpen && contextMenu.game && (
+        <GameContextMenu
+          isOpen={contextMenu.isOpen}
+          position={contextMenu.position}
+          onClose={() => setContextMenu({ ...contextMenu, isOpen: false })}
+          onLaunch={() => {
+            if (contextMenu.game) handleGameClick(contextMenu.game);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onToggleFavorite={() => {
+            if (contextMenu.game) handleToggleFavorite(contextMenu.game.id);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onTogglePin={() => {
+            if (contextMenu.game) handleTogglePin(contextMenu.game.id);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onSettings={() => {
+            if (contextMenu.game) setGameForSettings(contextMenu.game);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onNotes={() => {
+            if (contextMenu.game) handleOpenNotes(contextMenu.game);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onRefreshMetadata={() => {
+            if (contextMenu.game) handleRefreshGameMetadata(contextMenu.game.id);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onMods={() => {
+            if (contextMenu.game) handleOpenMods(contextMenu.game);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onOpenFolder={() => {
+            if (contextMenu.game && contextMenu.game.executablePath) {
+              // We want to open the folder containing the executable
+              // Since we don't have a direct "dirname" function here easily without node path module in renderer (unless we polyfill),
+              // we can just pass the executable path to the main process and let it handle opening the item in folder.
+              // The 'openPath' IPC handler uses 'shell.showItemInFolder' which does exactly this.
+              window.ipcRenderer.openPath(contextMenu.game.executablePath);
+              toast.success("Opening game folder...");
+            } else {
+              toast.error("Game path not configured");
+            }
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          onDelete={() => {
+            if (contextMenu.game) handleDeleteGame(contextMenu.game.id);
+            setContextMenu({ ...contextMenu, isOpen: false });
+          }}
+          isFavorite={contextMenu.game?.isFavorite ?? false}
+          isPinned={contextMenu.game?.isPinned ?? false}
+        />
+      )}
+
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        games={games}
+        onNavigate={handleViewChange}
+        onGameClick={(game) => {
+          handleGameClick(game);
+          setShowCommandPalette(false);
+        }}
+        onLaunchLast={handleLaunchLastPlayed}
+      />
+
+      <KeyboardShortcutsHelper
+        isOpen={showShortcutsHelper}
+        onClose={() => setShowShortcutsHelper(false)}
+      />
+
+      <ShortcutsButton onClick={() => setShowShortcutsHelper(true)} />
+
+      <Toaster />
     </div>
   );
 }
