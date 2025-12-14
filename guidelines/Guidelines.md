@@ -1,7 +1,4 @@
-**Add your own guidelines here**
-<!--
-
-System Guidelines
+# System Guidelines
 
 Use this file to provide the AI with rules and guidelines you want it to follow.
 This template outlines a few examples of things you can add. You can add your own sections and format it to suit your needs
@@ -58,4 +55,4 @@ or initiating processes. They communicate interactivity and should have clear, a
   * Purpose : Used for the least important actions
   * Visual Style : Text-only with no border, using primary color
   * Usage : For actions that should be available but not emphasized
--->
+
