@@ -12,10 +12,6 @@ class Store {
     constructor(fileName: string) {
         const userDataPath = app.getPath('userData');
         this.path = path.join(userDataPath, fileName);
-
-        // In a real production app, use keytar or similar to store a random key in OS keychain.
-        // For this scope, we derive a key from a hardcoded secret + machine ID (if available) or just a strong secret.
-        // Using a fixed secret for simplicity and recoverability in this context.
         const secret = 'game-vault-secure-storage-key-v1';
         this.encryptionKey = crypto.scryptSync(secret, 'salt', 32);
     }
@@ -196,7 +192,6 @@ ipcMain.handle('launch-game', async (_, game: { executablePath: string, steamApp
         resolve(true); // Resolve immediately to show "Running" state
 
         // Robust Process Tracking (Case-Insensitive)
-        // We poll the process list for the specific executable name.
         // Phase 1: Wait for process to appear (max 60s)
         // Phase 2: Wait for process to disappear
 
@@ -236,7 +231,6 @@ ipcMain.handle('launch-game', async (_, game: { executablePath: string, steamApp
                         setTimeout(checkProcess, 2000);
                     } else {
                         console.log(`Timed out waiting for ${exeName} to start.`);
-                        // If we timed out, we assume it failed or we missed it. 
                         // Send exit event to reset UI.
                         win?.webContents.send('game-exited');
                     }
@@ -334,13 +328,11 @@ ipcMain.handle('check-app-installed', async (_, appId: 'steam' | 'epic' | 'gog')
             const path = await checkRegistryForPath('HKCU\\Software\\Valve\\Steam', 'SteamExe');
             if (path && fs.existsSync(path)) return true;
         } else if (appId === 'epic') {
-            // Epic doesn't always store the EXE path directly, but usually "AppDataPath" or similar in:
             // HKLM\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher
             // Or HKLM\SOFTWARE\Epic Games\EpicGamesLauncher
             let path = await checkRegistryForPath('HKLM\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher', 'AppDataPath');
             if (path) {
                 // AppDataPath usually points to the Data folder, not the exe. 
-                // But if the key exists, it's likely installed.
                 return true;
             }
         } else if (appId === 'gog') {
@@ -354,7 +346,7 @@ ipcMain.handle('check-app-installed', async (_, appId: 'steam' | 'epic' | 'gog')
     return false;
 });
 
-// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
+//  Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 let win: BrowserWindow | null = null
@@ -475,8 +467,6 @@ ipcMain.handle('scan-games', async (_, customPath?: string) => {
                         }
                     }
 
-                    // If not a game (or we want to be aggressive), recurse
-                    // But if we found a game, we `continue`d above, so we only reach here if NOT a game
                     scanManualDir(gamePath, currentDepth + 1, maxDepth, strict);
 
                 } catch { }
@@ -703,9 +693,6 @@ app.whenReady().then(() => {
         const url = request.url.replace('media://', '');
         try {
             const decodedUrl = decodeURIComponent(url);
-            // Expected format: media://gameName/filename.png
-            // But we need to map it to userData/screenshots/gameName/filename.png
-            // The URL comes as "gameName/filename.png"
 
             // Security check: prevent directory traversal
             if (decodedUrl.includes('..')) {
@@ -946,7 +933,6 @@ const startGlobalMonitoring = () => {
             }
 
             // 4. Check for exits
-            // If a game was in runningGames but is NOT in currentDetectedPaths, it stopped.
             for (const runningPath of runningGames) {
                 if (!currentDetectedPaths.has(runningPath)) {
                     // GAME EXITED
@@ -1047,9 +1033,7 @@ function createWindow() {
     // win.webContents.openDevTools();
 }
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit()
@@ -1058,11 +1042,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('activate', () => {
-    // On OS X it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow()
     }
 })
 
-// app.whenReady moved up to protocol registration
